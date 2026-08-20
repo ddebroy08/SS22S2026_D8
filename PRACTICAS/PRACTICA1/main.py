@@ -174,8 +174,9 @@ cursor = conn.cursor()
 
 print("--------- LIMPIANDO TABLAS ANTES DE RECARGAR ---------")
 
+# Dim_Pasajero NO se limpia: es una dimensión de tipo 2 y debe conservar
+# su historial entre corridas del ETL (ver bloque DIM_PASAJERO mas abajo).
 cursor.execute("DELETE FROM Hechos_Vuelo")
-cursor.execute("DELETE FROM Dim_Pasajero")
 cursor.execute("DELETE FROM Dim_Fecha")
 cursor.execute("DELETE FROM Dim_Avion")
 cursor.execute("DELETE FROM Dim_Aeropuerto")
@@ -184,7 +185,6 @@ cursor.execute("DELETE FROM Dim_Aerolinea")
 cursor.execute("DBCC CHECKIDENT ('Dim_Aerolinea', RESEED, 0)")
 cursor.execute("DBCC CHECKIDENT ('Dim_Aeropuerto', RESEED, 0)")
 cursor.execute("DBCC CHECKIDENT ('Dim_Avion', RESEED, 0)")
-cursor.execute("DBCC CHECKIDENT ('Dim_Pasajero', RESEED, 0)")
 cursor.execute("DBCC CHECKIDENT ('Hechos_Vuelo', RESEED, 0)")
 
 conn.commit()
@@ -385,7 +385,7 @@ cursor.executemany(
 
 conn.commit()
 
-# ============ DIM_PASAJERO ============
+# ============ DIM_PASAJERO (SCD Tipo 2) ============
 
 df_pasajero = (
     file
@@ -403,46 +403,92 @@ df_pasajero = (
     .copy()
 )
 
-df_pasajero['fecha_inicio'] = (
-    df_pasajero['booking_datetime']
-    .dt.date
-)
+df_pasajero['fecha_inicio'] = df_pasajero['booking_datetime'].dt.date
 
-df_pasajero['fecha_fin'] = None
-df_pasajero['es_vigente'] = 1
-
-pasajero_data = list(
-    df_pasajero[
-        [
-            'passenger_id',
-            'passenger_gender',
-            'passenger_age',
-            'passenger_nationality',
-            'fecha_inicio',
-            'fecha_fin',
-            'es_vigente'
-        ]
-    ].itertuples(index=False, name=None)
-)
-
-cursor.executemany(
+cursor.execute(
     """
-    INSERT INTO Dim_Pasajero
-    (
-        passenger_id,
-        passenger_gender,
-        passenger_age,
-        passenger_nationality,
-        fecha_inicio,
-        fecha_fin,
-        es_vigente
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """,
-    pasajero_data
+    SELECT pasajero_key, passenger_id, passenger_gender,
+           passenger_age, passenger_nationality
+    FROM Dim_Pasajero
+    WHERE es_vigente = 1
+    """
 )
+
+vigentes = {
+    row.passenger_id: {
+        'key': row.pasajero_key,
+        'gender': row.passenger_gender,
+        'age': row.passenger_age,
+        'nationality': row.passenger_nationality
+    }
+    for row in cursor.fetchall()
+}
+
+nuevos = []
+expirados = []
+
+for row in df_pasajero.itertuples(index=False):
+    actual = vigentes.get(row.passenger_id)
+
+    if actual is None:
+        nuevos.append((
+            row.passenger_id,
+            row.passenger_gender,
+            row.passenger_age,
+            row.passenger_nationality,
+            row.fecha_inicio
+        ))
+        continue
+
+    cambio = (
+        actual['gender'] != row.passenger_gender
+        or actual['age'] != row.passenger_age
+        or actual['nationality'] != row.passenger_nationality
+    )
+
+    if cambio:
+        expirados.append((row.fecha_inicio, actual['key']))
+        nuevos.append((
+            row.passenger_id,
+            row.passenger_gender,
+            row.passenger_age,
+            row.passenger_nationality,
+            row.fecha_inicio
+        ))
+
+if expirados:
+    cursor.executemany(
+        """
+        UPDATE Dim_Pasajero
+        SET fecha_fin = ?, es_vigente = 0
+        WHERE pasajero_key = ?
+        """,
+        expirados
+    )
+
+if nuevos:
+    cursor.executemany(
+        """
+        INSERT INTO Dim_Pasajero
+        (
+            passenger_id,
+            passenger_gender,
+            passenger_age,
+            passenger_nationality,
+            fecha_inicio,
+            fecha_fin,
+            es_vigente
+        )
+        VALUES (?, ?, ?, ?, ?, NULL, 1)
+        """,
+        nuevos
+    )
 
 conn.commit()
+
+print("--------- SCD2 DIM_PASAJERO ---------")
+print("Versiones nuevas insertadas:", len(nuevos))
+print("Versiones expiradas:", len(expirados))
 
 cursor.execute(
     """
