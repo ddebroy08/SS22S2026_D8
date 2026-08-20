@@ -33,16 +33,14 @@ CREATE TABLE Dim_Fecha (
 
 CREATE TABLE Dim_Pasajero (
     pasajero_key INT IDENTITY(1,1) PRIMARY KEY,
-    passenger_id VARCHAR(20) NOT NULL,
+    passenger_id VARCHAR(50) NOT NULL,
     passenger_gender CHAR(1) NOT NULL,
     passenger_age INT NOT NULL,
-    passenger_nationality VARCHAR(10) NOT NULL,
+    passenger_nationality VARCHAR(20) NOT NULL,
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE NULL,
     es_vigente BIT NOT NULL DEFAULT 1
 );
-
-ALTER TABLE Dim_Pasajero ALTER COLUMN passenger_nationality VARCHAR(20) NOT NULL;
 
 CREATE TABLE Hechos_Vuelo (
     hecho_key BIGINT IDENTITY(1,1) PRIMARY KEY,

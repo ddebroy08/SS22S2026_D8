@@ -131,7 +131,6 @@ print(file['ticket_price'].describe())
 
 conn = get_db_connection()
 cursor = conn.cursor()
-#cursor.fast_executemany = True
 
 print("--------- LIMPIANDO TABLAS ANTES DE RECARGAR ---------")
 cursor.execute("DELETE FROM Hechos_Vuelo")
@@ -149,6 +148,14 @@ cursor.execute("DBCC CHECKIDENT ('Hechos_Vuelo', RESEED, 0)")
 conn.commit()
 
 file['passenger_age'] = file['passenger_age'].round().astype(int)
+
+# Helper para limpiar tipos de Pandas/Numpy antes de pyodbc
+def clean_val(val):
+    if pd.isna(val):
+        return None
+    if isinstance(val, (pd.Timestamp, pd.Timedelta)):
+        return val.to_pydatetime()
+    return val
 
 # ============ DIM_AEROLINEA ============
 aerolineas = file[['airline_code', 'airline_name']].drop_duplicates()
@@ -209,8 +216,19 @@ dim_fecha['dia'] = dim_fecha['fecha'].dt.day
 dim_fecha['trimestre'] = dim_fecha['fecha'].dt.quarter
 dim_fecha['dia_semana'] = dim_fecha['fecha'].dt.dayofweek.apply(lambda d: dias_semana_es[d])
 
-fecha_data = list(dim_fecha[['fecha_key', 'fecha', 'anio', 'mes', 'nombre_mes', 'dia', 'trimestre', 'dia_semana']]
-                   .itertuples(index=False, name=None))
+fecha_data = [
+    (
+        int(row.fecha_key),
+        row.fecha.to_pydatetime().date(),
+        int(row.anio),
+        int(row.mes),
+        str(row.nombre_mes),
+        int(row.dia),
+        int(row.trimestre),
+        str(row.dia_semana)
+    )
+    for row in dim_fecha.itertuples(index=False)
+]
 
 cursor.executemany(
     "INSERT INTO Dim_Fecha (fecha_key, fecha, anio, mes, nombre_mes, dia, trimestre, dia_semana) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -226,12 +244,19 @@ df_pasajero = (
     .copy()
 )
 df_pasajero['fecha_inicio'] = df_pasajero['booking_datetime'].dt.date
-df_pasajero['fecha_fin'] = None
-df_pasajero['es_vigente'] = 1
 
-pasajero_data = list(df_pasajero[['passenger_id', 'passenger_gender', 'passenger_age',
-                                    'passenger_nationality', 'fecha_inicio', 'fecha_fin', 'es_vigente']]
-                      .itertuples(index=False, name=None))
+pasajero_data = [
+    (
+        str(row.passenger_id),
+        str(row.passenger_gender),
+        int(row.passenger_age),
+        str(row.passenger_nationality),
+        row.fecha_inicio,
+        None,
+        1
+    )
+    for row in df_pasajero.itertuples(index=False)
+]
 
 cursor.executemany(
     "INSERT INTO Dim_Pasajero (passenger_id, passenger_gender, passenger_age, passenger_nationality, fecha_inicio, fecha_fin, es_vigente) "
@@ -261,7 +286,15 @@ hechos['pasajero_key'] = hechos['passenger_id'].map(map_pasajero)
 hechos['fecha_salida_key'] = hechos['departure_datetime'].dt.strftime('%Y%m%d').astype(int)
 hechos['fecha_reserva_key'] = hechos['booking_datetime'].dt.strftime('%Y%m%d').astype(int)
 
-hechos['fecha_valida'] = hechos['fecha_valida'].map({True: 1, False: 0})
+# Mapeo seguro a int (1, 0, None) para columna BIT en SQL Server
+def to_bit(val):
+    if val is True or val == 1:
+        return 1
+    elif val is False or val == 0:
+        return 0
+    return None
+
+hechos['fecha_valida'] = hechos['fecha_valida'].apply(to_bit)
 
 columnas_hechos = [
     'record_id', 'aerolinea_key', 'avion_key', 'aeropuerto_origen_key', 'aeropuerto_destino_key',
@@ -272,29 +305,37 @@ columnas_hechos = [
     'ticket_price_usd_est', 'bags_total', 'bags_checked'
 ]
 
-hechos_final = hechos[columnas_hechos].where(pd.notnull(hechos[columnas_hechos]), None)
-hechos_data = list(hechos_final.itertuples(index=False, name=None))
+hechos_data = [
+    tuple(clean_val(x) for x in row)
+    for row in hechos[columnas_hechos].itertuples(index=False, name=None)
+]
 
 placeholders = ", ".join(["?"] * len(columnas_hechos))
 insert_sql = f"INSERT INTO Hechos_Vuelo ({', '.join(columnas_hechos)}) VALUES ({placeholders})"
 
-cursor.fast_executemany = False
-insertadas = 0
-for i, fila in enumerate(hechos_data):
-    try:
-        cursor.execute(insert_sql, fila)
-        insertadas += 1
-    except pyodbc.Error as e:
-        print("--------- ERROR EN FILA ---------")
-        print("indice:", i)
-        print("record_id:", fila[0])
-        print("valores:", fila)
-        print("error:", e)
-        break
+cursor.fast_executemany = True
+try:
+    cursor.executemany(insert_sql, hechos_data)
+    print("--------- HECHOS CARGADOS EXITOSAMENTE (BULK) ---------")
+    print(len(hechos_data), "filas insertadas en Hechos_Vuelo")
+except pyodbc.Error as err:
+    print("--------- WARNING: BULK INSERT FALLÓ, EJECUTANDO MODO DIAGNÓSTICO FILA POR FILA ---------")
+    print("Detalle del error:", err)
+    cursor.fast_executemany = False
+    insertadas = 0
+    for i, fila in enumerate(hechos_data):
+        try:
+            cursor.execute(insert_sql, fila)
+            insertadas += 1
+        except pyodbc.Error as e:
+            print("--------- ERROR EN FILA ---------")
+            print("indice:", i)
+            print("record_id:", fila[0])
+            print("valores:", fila)
+            print("error:", e)
+            break
+    print(f"{insertadas} filas insertadas.")
 
 conn.commit()
-print("--------- HECHOS CARGADOS ---------")
-print(insertadas, "filas insertadas en Hechos_Vuelo")
-
 cursor.close()
 conn.close()
