@@ -261,25 +261,21 @@ Esta vista ejecutiva presenta una panorámica holística del rendimiento aeropor
 ![Dashboard General](img/general.png)
 
 #### Componentes Visuales:
-1. **Encabezado Institucional:** Identidad gráfica de la Universidad de San Carlos de Guatemala, título del proyecto e indicador de curso.
-2. **Filtro Temporal Global (Slicer):** Selector de rango de fechas (`20/01/2024` a `31/12/2025`) enlazado a la dimensión `Dim_Fecha`.
+1. **Encabezado Institucional:** Identidad gráfica con el escudo de la Universidad de San Carlos de Guatemala, título "Aeropuerto G8" y segmentador de fecha.
+2. **Filtro Temporal Global (Date Slicer):** Selector de rango de fechas (`10/01/2023` a `31/12/2025`).
 3. **Tarjetas KPI Principales:**
-   - **`Cant. Vuelos`:** `10 mil` registros analizados (100% de la muestra).
-   - **`Costo Promedio ($)`:** `$104.72` USD por boleto vendido.
-   - **`% Vuelos a Tiempo`:** `72.78%`, con indicador de semáforo verde.
-4. **Matriz de Estacionalidad Operativa (`Meses con más vuelos`):** Muestra el volumen mes a mes (Ene a Dic), destacando los meses de mayor actividad: Diciembre (`878`), Octubre (`875`) y Abril (`869`).
-5. **Gráfico de Columnas (`Top 5 Destinos`):** Filtro `TopN = 5` que jerarquiza los destinos más demandados:
-   - **BCN** (Barcelona): 673 vuelos
-   - **SAP** (San Pedro Sula): 672 vuelos
-   - **BOG** (Bogotá): 671 vuelos
-   - **CUN** (Cancún): 667 vuelos
-   - **HAV** (La Habana): 664 vuelos
-6. **Gráfico de Anillo (`Ventas por Canal de Comercialización`):** Muestra un balance equilibrado entre canales:
-   - Aeropuerto: `20.2%` (2,024 transacciones)
-   - Web: `20.0%` (1,995 transacciones)
-   - Agencia: `19.6%` (1,958 transacciones)
-   - Call Center: `19.5%` (1,947 transacciones)
-   - App Móvil: `19.3%` (1,932 transacciones)
+   - **`Cant. Vuelos`:** `50 mill.` registros acumulados analizados.
+   - **`Costo promedio ($)`:** `$105` USD por boleto emitido.
+   - **`% Vuelos a Tiempo`:** `75%`, cumpliendo la meta con semáforo verde.
+4. **Matriz de Estacionalidad Operativa (`Meses con más vuelos`):** Barra de calor condicional que refleja mayor demanda en **Octubre (4,509,692)**, **Diciembre (4,359,409)**, **Mayo (4,270,528)** y **Marzo (4,269,599)**.
+5. **Gráfico de Columnas (`Top 5 destinos`):** Identifica las 5 rutas con mayor demanda identificadas por sus claves foráneas (11, 10, 3, 0, 1 en torno a 3.5 mill. cada una).
+6. **Gráfico Circular (`Ventas por Canal`):** Participación comercial de boletos:
+   - Aeropuerto: `20.44%`
+   - Web: `19.73%`
+   - App Móvil: `19.43%`
+   - Call Center: `19.30%`
+   - Agencia: `19.18%`
+   - Desconocido: `1.34%`
 
 ---
 
@@ -289,27 +285,22 @@ Esta página se enfoca en el control operacional, tiempos de vuelo, demoras y di
 ![Dashboard Vuelo](img/vuelo.png)
 
 #### Componentes Visuales:
-1. **Segmentadores Superiores de Control:** Filtros independientes por `Destino` (`Dim_Aeropuerto`), `Clase Cabina` y `Rango de Fecha`.
+1. **Segmentadores Superiores de Control:** Filtros independientes por `Destino`, `Clase` y rango de fecha `Date`.
 2. **KPIs Operativos:**
-   - **`Duración Prom (min)`:** `220.29 min` (itinerario promedio general).
-   - **`Retraso Prom (min)`:** `24.61 min` (impacto promedio de demoras).
-3. **Gráfico Circular de Clases de Cabina:**
-   - **Economy:** `78.7%` (7,866 pasajeros)
-   - **Premium Economy:** `9.7%` (974 pasajeros)
-   - **Business:** `9.6%` (956 pasajeros)
-   - **First Class:** `2.0%` (204 pasajeros)
-4. **Gráfico de Líneas Multiserie con Jerarquía Temporal:**
-   - Eje X configurado con la jerarquía `Dim_Fecha.fecha` a nivel de **Mes**.
-   - Cuatro líneas simultáneas trazadas por las medidas DAX:
-     * *Verde:* `Cant. Finalizados` (estable entre 560 y 650 vuelos mensuales).
-     * *Naranja:* `Cant. Vuelos Atrasados` (oscila entre 138 y 179 demoras mensuales).
-     * *Rojo:* `Cant. Cancelados` (34 a 66 vuelos cancelados/mes, con pico en Diciembre).
-     * *Púrpura punteada:* `Cant. Vuelos Desviados` (8 a 23 desvíos/mes).
-5. **Gráfico de Dona de Estados Globales de Vuelos:**
-   - `ON_TIME`: 7,278 vuelos (72.8%)
-   - `DELAYED`: 1,970 vuelos (19.7%)
-   - `CANCELLED`: 560 vuelos (5.6%)
-   - `DIVERTED`: 192 vuelos (1.9%)
+   - **`Duración Prom (min)`:** `266 min` (≈ 4 horas 26 minutos promedio de ruta).
+   - **`Retraso Prom (min)`:** `26 min` (impacto promedio de demoras).
+3. **Gráfico Circular de Clases de Cabina (`Clase`):**
+   - **Economy:** `78.65%` (39 mill.)
+   - **Business:** `9.83%` (5 mill.)
+   - **Premium Economy:** `9.42%` (5 mill.)
+   - **First:** `1.93%` (1 mill.)
+4. **Gráfico de Líneas Multiserie:**
+   - Contraste temporal con líneas de `Cant. Finalizados` (verde en nivel superior ~600 operaciones mensuales), `Cant. Vuelos Atrasados`, `Cant. Cancelados` y `Cant. Desviados`.
+5. **Gráfico Circular de Estados Globales (`Estados de Vuelos`):**
+   - `ON_TIME`: 37 mill. (`73.24%`)
+   - `DELAYED`: 10 mill. (`19.25%`)
+   - `CANCELLED`: 3 mill. (`5.57%`)
+   - `DIVERTED`: 1 mill. (`1.93%`)
 
 ---
 
@@ -319,23 +310,23 @@ Brinda granularidad a nivel de cada pasajero, asiento, aerolínea y equipaje, pe
 ![Dashboard Pasajeros](img/pasajeros.png)
 
 #### Componentes Visuales:
-1. **Segmentadores de Manifiesto:** Permiten filtrar por número específico de `Vuelo` (ej. `FR5515`, `AV1170`), `Origen`, `Destino` y `Fecha`.
+1. **Segmentadores de Manifiesto:** Filtros por `Vuelo`, `Origen`, `Destino` y `Date`.
 2. **Tarjetas Dinámicas de Manifiesto:**
-   - `Cant. Pasajeros Registrados`: 10,000 en el universo total, adaptándose al vuelo seleccionado.
-   - `Estado Operativo General`: Informa el estado del vuelo seleccionado (`ON_TIME`, `DELAYED`, `CANCELLED`).
-   - `Duración Promedio de Itinerario`: Informa la duración exacta en minutos del trayecto filtrado.
-3. **Matriz Dinámica de Pasajeros por Vuelo:**
-   - Desglose columna por columna:
-     * **No. Vuelo** (`flight_number`)
-     * **ID Pasajero** (`passenger_id`)
-     * **Nacionalidad** (`passenger_nationality`)
-     * **Género** (`passenger_gender`)
-     * **Edad** (`passenger_age`)
-     * **Total Maletas** (`bags_total`)
-     * **Aerolínea** (`Dim_Aerolinea.airline_name`)
-     * **Asiento Asignado** (`seat`)
-     * **Clase de Cabina** (`cabin_class`)
-     * **Tarifa Pagada** (`ticket_price` / `ticket_price_usd_est`)
+   - `Cant. Pasajeros`: **10,00 mil** registros en la muestra.
+   - `Estado`: Estado del vuelo consultado (ej. `CANCELLED`).
+   - `Duración (mins)`: Duración exacta de **266 minutos**.
+3. **Matriz Transaccional de Pasajeros por Vuelo:**
+   - Desglose detallado con cabecera verde institucional:
+     * **flight_number** (ej. AA0014, AA0027, AA0042)
+     * **ID pasajero** (GUID del pasajero)
+     * **Nacionalidad** (HN, CO, CU, MX, GT, SV, ES, CR)
+     * **Género** (F, M, X)
+     * **Edad**
+     * **Cant. Equipaje**
+     * **Aerolinea** (ej. Aeroméxico)
+     * **Asiento** (22A, 32B, 10A, 10E, etc.)
+     * **Clase** (ECONOMY, BUSINESS, PREMIUM_ECONOMY)
+     * **Precio Ticket** ($56 a $264 USD)
 
 ---
 

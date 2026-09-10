@@ -169,16 +169,11 @@ Esta vista proporciona un resumen de alto nivel para la gerencia general sobre e
 *Ilustración 1. Vista General del Dashboard en Power BI — Resumen macro, estacionalidad, top 5 destinos y canales de venta.*
 
 #### Elementos y Hallazgos Principales:
-* **Tarjetas KPI:** Destacan los 10,000 vuelos analizados, el costo promedio de $104.72 USD y el 72.78% de puntualidad en color verde.
-* **Matriz de Estacionalidad Operativa:** Muestra la distribución mensual de vuelos. Se evidencia mayor actividad en **Diciembre (878)**, **Octubre (875)** y **Abril (869)** por temporadas festivas y vacacionales.
-* **Gráfico de Columnas (Top 5 Destinos):** Identifica las 5 rutas internacionales con mayor frecuencia mediante filtro Top N:
-  * Barcelona (BCN): 673 vuelos (6.73%)
-  * San Pedro Sula (SAP): 672 vuelos (6.72%)
-  * Bogotá (BOG): 671 vuelos (6.71%)
-  * Cancún (CUN): 667 vuelos (6.67%)
-  * La Habana (HAV): 664 vuelos (6.64%)
-* **Gráfico Circular de Canales de Venta:** Muestra una notable paridad comercial: Mostrador de Aeropuerto (20.2%), Web (20.0%), Agencia (19.6%), Call Center (19.5%) y App Móvil (19.3%).
-* **Segmentador por Fecha:** Permite ajustar el período de análisis de forma dinámica.
+* **Tarjetas KPI:** Presentan la cantidad total registrada (**50 mill.**), el costo promedio ponderado de **$105 USD** y el **75%** de puntualidad global (% Vuelos a Tiempo).
+* **Matriz de Estacionalidad Operativa (Meses con más vuelos):** Identifica el comportamiento mensual con formato condicional de semáforo, con mayor tráfico en **Octubre (4,509,692)**, **Diciembre (4,359,409)**, **Mayo (4,270,528)** y **Marzo (4,269,599)**.
+* **Gráfico de Columnas (Top 5 Destinos):** Jerarquiza los destinos con mayor tráfico aéreo identificados por su clave foránea (destinos 11, 10, 3, 0, 1 en torno a 3.5 mill. de operaciones cada uno).
+* **Gráfico Circular de Ventas por Canal:** Muestra la participación comercial: Aeropuerto (20.44%), Web (19.73%), App Móvil (19.43%), Call Center (19.30%), Agencia (19.18%) y Desconocido (1.34%).
+* **Segmentador por Fecha:** Rango activo configurado entre 10/01/2023 y 31/12/2025.
 
 ---
 
@@ -189,14 +184,15 @@ Esta página profundiza en las operaciones tácticas de los vuelos, demoras y ti
 *Ilustración 2. Vista de Operaciones de Vuelo en Power BI — Serie temporal con jerarquía de fechas, retrasos y cabinas.*
 
 #### Elementos y Hallazgos Principales:
-* **KPIs de Tiempos:** Duración promedio de 220.29 minutos y retraso promedio de 24.61 minutos en vuelos demorados.
-* **Distribución por Cabina:** Alta concentración turística con **Economy (78.7%)**, seguida de **Premium Economy (9.7%)**, **Business (9.6%)** y **First Class (2.0%)**.
-* **Gráfico de Líneas con Jerarquía Temporal de Fechas:** Contrasta mes a mes las 4 medidas de estado:
-  * Finalizados (verde): comportamiento estable entre 560 y 650 vuelos/mes.
-  * Atrasados (naranja): media de 160 retrasos mensuales.
-  * Cancelados (rojo): incremento pronunciado en **Diciembre (66 cancelaciones)** por factores de clima y congestión.
-  * Desviados (púrpura): valores bajos entre 8 y 23 eventos mensuales.
-* **Segmentadores Superiores:** Filtros simultáneos por destino, cabina y fechas.
+* **KPIs de Tiempos:** Duración promedio de **266 minutos** (≈ 4 horas 26 minutos) y retraso promedio de **26 minutos** en vuelos demorados.
+* **Distribución por Cabina:** Alta concentración turística con **Economy (78.65% / 39 mill.)**, seguida de **Business (9.83% / 5 mill.)**, **Premium Economy (9.42% / 5 mill.)** y **First Class (1.93% / 1 mill.)**.
+* **Gráfico de Líneas con Jerarquía Temporal de Fechas:** Contrasta mes a mes las 4 medidas DAX de estado:
+  * Finalizados (verde): comportamiento estable en nivel superior (~600 operaciones mensuales).
+  * Atrasados (azul oscuro): media de demoras mensuales controladas.
+  * Cancelados (celeste): variaciones estacionales.
+  * Desviados (azul intermedio): valores mínimos y controlados.
+* **Gráfico Circular (Estados de Vuelos):** Confirma que **73.24%** operó a tiempo (37 mill. ON_TIME), **19.25%** demorado (10 mill. DELAYED), **5.57%** cancelado (3 mill. CANCELLED) y **1.93%** desviado (1 mill. DIVERTED).
+* **Segmentadores Superiores:** Filtros simultáneos por destino, cabina y fechas (Date).
 
 ---
 
@@ -207,9 +203,9 @@ Permite auditar el manifiesto detallado de viajeros por vuelo individual.
 *Ilustración 3. Manifiesto y Detalle Transaccional de Pasajeros en Power BI — Matriz detallada por vuelo, pasajero, asiento y tarifa.*
 
 #### Elementos y Hallazgos Principales:
-* **Filtros Específicos:** Segmentación por número de vuelo (ej. FR5515, AV1170), aeropuerto de origen, destino y fecha.
-* **Tarjetas Dinámicas:** Indican la cantidad de pasajeros del vuelo, estado actual del itinerario y su duración.
-* **Matriz Detallada:** Tabla con No. de vuelo, ID del pasajero, nacionalidad, género, edad, maletas facturadas, aerolínea operadora, número de asiento, clase y tarifa pagada en dólares.
+* **Filtros Específicos:** Segmentación por número de vuelo (Vuelo), aeropuerto de origen, destino y fecha (Date).
+* **Tarjetas Dinámicas:** Indican **10,00 mil** pasajeros registrados, estado operativo actual (ej. `CANCELLED`) y duración de **266 minutos**.
+* **Matriz Detallada:** Tabla con cabecera verde institucional desglosando flight_number, ID pasajero, nacionalidad (HN, CO, CU, MX, GT, SV, ES, CR), género (F, M, X), edad, cantidad de equipaje, aerolínea (ej. Aeroméxico), asiento (22A, 32B, 10A, etc.), clase (Economy, Business, Premium Economy) y precio ticket en dólares ($56 a $264 USD).
 
 ---
 
