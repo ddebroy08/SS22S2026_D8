@@ -1,9 +1,9 @@
-from connectiondb import get_connection
+from connectiondb import get_oltp_connection
 
 
 def main():
     try:
-        conn = get_connection()
+        conn = get_oltp_connection()
 
         with conn.cursor() as cursor:
             cursor.execute("SELECT version();")
