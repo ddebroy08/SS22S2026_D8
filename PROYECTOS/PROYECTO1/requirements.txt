@@ -1,0 +1,5 @@
+pandas
+SQLAlchemy
+python-dotenv
+psycopg[binary]
+dbt-postgres

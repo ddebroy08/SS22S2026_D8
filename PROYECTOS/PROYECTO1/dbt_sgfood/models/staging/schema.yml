@@ -1,0 +1,231 @@
+version: 2
+
+models:
+
+  # ---------- Base transaccional ----------
+
+  - name: stg_sucursal
+    columns:
+      - name: id_sucursal
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_categoria
+    columns:
+      - name: id_categoria
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_marca
+    columns:
+      - name: id_marca
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_producto
+    columns:
+      - name: id_producto
+        tests:
+          - unique
+          - not_null
+      - name: id_categoria
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_categoria')
+                field: id_categoria
+      - name: id_marca
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marca')
+                field: id_marca
+      - name: costo_base
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+      - name: precio_lista
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+
+  - name: stg_cliente
+    columns:
+      - name: id_cliente
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_venta
+    columns:
+      - name: id_venta
+        tests:
+          - unique
+          - not_null
+      - name: id_cliente
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_cliente')
+                field: id_cliente
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sucursal')
+                field: id_sucursal
+
+  - name: stg_venta_detalle
+    columns:
+      - name: id_detalle
+        tests:
+          - unique
+          - not_null
+      - name: id_venta
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_venta')
+                field: id_venta
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_producto')
+                field: id_producto
+      - name: cantidad
+        tests:
+          - not_null
+          - valor_en_rango:
+              arguments:
+                min_value: 1
+      - name: precio_unitario
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+      - name: descuento
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  # ---------- Archivos CSV ----------
+
+  - name: stg_inventario_bodega
+    columns:
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sucursal')
+                field: id_sucursal
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_producto')
+                field: id_producto
+      - name: stock_disponible
+        tests:
+          - not_null
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+
+  - name: stg_metas_ventas
+    columns:
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sucursal')
+                field: id_sucursal
+      - name: meta_ventas
+        tests:
+          - not_null
+          - valor_en_rango:
+              arguments:
+                min_value: 0.01
+      - name: meta_unidades
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 1
+
+  - name: stg_proveedores_precios
+    columns:
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_producto')
+                field: id_producto
+      - name: costo_proveedor
+        tests:
+          - not_null
+          - valor_en_rango:
+              arguments:
+                min_value: 0.01
+      - name: plazo_dias
+        tests:
+          - valor_en_rango:
+              arguments:
+                min_value: 0
+
+  - name: stg_devoluciones
+    columns:
+      - name: id_devolucion
+        tests:
+          - unique
+          - not_null
+      - name: id_venta
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_venta')
+                field: id_venta
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_producto')
+                field: id_producto
+      - name: cantidad_devuelta
+        tests:
+          - not_null
+          - valor_en_rango:
+              arguments:
+                min_value: 1
+
+  - name: stg_promociones
+    columns:
+      - name: id_promocion
+        tests:
+          - unique
+          - not_null
+      - name: id_categoria
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_categoria')
+                field: id_categoria

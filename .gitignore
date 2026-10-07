@@ -1,6 +1,9 @@
 # macOS system files
 .DS_Store
 
+# Entorno virtual
+.venv/
+
 # Python cache
 __pycache__/
 *.pyc

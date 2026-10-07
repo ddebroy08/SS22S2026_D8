@@ -1,0 +1,43 @@
+version: 2
+
+models:
+
+  - name: int_productos
+    description: Producto con el nombre de su categoría y de su marca.
+    columns:
+      - name: id_producto
+        tests:
+          - unique
+          - not_null
+      - name: nombre_categoria
+        tests:
+          - not_null
+      - name: nombre_marca
+        tests:
+          - not_null
+
+  - name: int_ventas_detalladas
+    description: >
+      Línea de venta con los datos del encabezado, el costo de la venta
+      (cantidad × costo_base) y la bandera de promoción vigente.
+    columns:
+      - name: id_detalle
+        tests:
+          - unique
+          - not_null
+      - name: costo_venta
+        tests:
+          - not_null
+
+  - name: int_devoluciones_con_venta
+    description: >
+      Devolución con el cliente y la sucursal de la venta original, y el monto
+      devuelto calculado con el precio y descuento de la línea vendida.
+    columns:
+      - name: id_devolucion
+        tests:
+          - unique
+          - not_null
+      - name: precio_unitario
+        tests:
+          - not_null

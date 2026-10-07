@@ -1,0 +1,301 @@
+version: 2
+
+models:
+
+  # ---------- Dimensiones ----------
+
+  - name: dim_fecha
+    description: Calendario diario de 2026. Llave natural fecha.
+    columns:
+      - name: fecha
+        description: Fecha calendario (PK).
+        tests:
+          - unique
+          - not_null
+      - name: dia_semana
+        description: Día de la semana ISO, 1 = lunes, 7 = domingo.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7]
+                quote: false
+      - name: es_fin_de_semana
+        description: Verdadero para sábado y domingo.
+
+  - name: dim_producto
+    description: Producto con categoría y marca desnormalizadas.
+    columns:
+      - name: id_producto
+        description: Identificador del producto (PK).
+        tests:
+          - unique
+          - not_null
+      - name: sku
+        tests:
+          - unique
+          - not_null
+      - name: costo_base
+        description: Costo de referencia unitario.
+      - name: precio_lista
+        description: Precio de lista unitario.
+      - name: nombre_categoria
+        tests:
+          - not_null
+      - name: nombre_marca
+        tests:
+          - not_null
+
+  - name: dim_cliente
+    description: Clientes de SG-Food.
+    columns:
+      - name: id_cliente
+        description: Identificador del cliente (PK).
+        tests:
+          - unique
+          - not_null
+      - name: tipo_cliente
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Mayorista', 'Minorista', 'Restaurante', 'Tienda de barrio']
+
+  - name: dim_sucursal
+    description: Sucursales de SG-Food.
+    columns:
+      - name: id_sucursal
+        description: Identificador de la sucursal (PK).
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_proveedor
+    description: Proveedores obtenidos del archivo de precios de proveedores.
+    columns:
+      - name: id_proveedor
+        description: Identificador del proveedor (PK).
+        tests:
+          - unique
+          - not_null
+      - name: nombre_proveedor
+        tests:
+          - not_null
+
+  # ---------- Hechos ----------
+
+  - name: fct_ventas
+    description: >
+      Grano: un producto dentro de una venta. Incluye ventas COMPLETADA, ANULADA
+      y PENDIENTE; las consultas de ingresos filtran estado = 'COMPLETADA'.
+    columns:
+      - name: id_detalle
+        description: Línea de venta (PK).
+        tests:
+          - unique
+          - not_null
+      - name: id_venta
+        description: Número de venta (dimensión degenerada).
+        tests:
+          - not_null
+      - name: fecha
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_producto')
+                field: id_producto
+      - name: id_cliente
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cliente')
+                field: id_cliente
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sucursal')
+                field: id_sucursal
+      - name: canal
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Mayorista', 'Televenta', 'Tienda', 'Web']
+      - name: metodo_pago
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Crédito', 'Efectivo', 'Tarjeta', 'Transferencia']
+      - name: estado
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['COMPLETADA', 'ANULADA', 'PENDIENTE']
+      - name: en_promocion
+        description: Verdadero si la categoría del producto tenía una promoción vigente en la fecha de la venta.
+        tests:
+          - not_null
+      - name: monto_venta
+        description: Importe neto de la línea (subtotal).
+        tests:
+          - not_null
+      - name: costo_venta
+        description: cantidad × costo_base del producto.
+        tests:
+          - not_null
+
+  - name: fct_devoluciones
+    description: "Grano: una devolución."
+    columns:
+      - name: id_devolucion
+        description: Identificador de la devolución (PK).
+        tests:
+          - unique
+          - not_null
+      - name: id_venta
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_ventas')
+                field: id_venta
+      - name: fecha_devolucion
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_producto')
+                field: id_producto
+      - name: id_cliente
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cliente')
+                field: id_cliente
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sucursal')
+                field: id_sucursal
+      - name: monto_devuelto
+        description: precio_unitario × (1 − descuento) × cantidad_devuelta de la línea vendida.
+        tests:
+          - not_null
+
+  - name: fct_inventario
+    description: >
+      Foto periódica. Grano: producto × sucursal × fecha de corte.
+      stock_disponible es semiaditivo: no se suma a través de fechas.
+    tests:
+      - unique_combinacion:
+          arguments:
+            columnas: ['fecha_corte', 'id_producto', 'id_sucursal']
+    columns:
+      - name: fecha_corte
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_producto')
+                field: id_producto
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sucursal')
+                field: id_sucursal
+      - name: dias_para_vencer
+        description: fecha_vencimiento − fecha_corte.
+      - name: estado_stock
+        description: BAJO si stock < mínimo, EXCEDENTE si stock > máximo, si no OPTIMO.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['BAJO', 'OPTIMO', 'EXCEDENTE']
+
+  - name: fct_metas
+    description: "Grano: sucursal × mes."
+    tests:
+      - unique_combinacion:
+          arguments:
+            columnas: ['fecha_periodo', 'id_sucursal']
+    columns:
+      - name: fecha_periodo
+        description: Primer día del mes de la meta.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+      - name: id_sucursal
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sucursal')
+                field: id_sucursal
+
+  - name: fct_cotizaciones_proveedor
+    description: >
+      Grano: producto ofrecido por un proveedor. costo_proveedor y plazo_dias
+      son medidas no aditivas.
+    tests:
+      - unique_combinacion:
+          arguments:
+            columnas: ['id_proveedor', 'id_producto']
+    columns:
+      - name: id_proveedor
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_proveedor')
+                field: id_proveedor
+      - name: id_producto
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_producto')
+                field: id_producto
+      - name: fecha_vigencia
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+      - name: costo_proveedor
+        tests:
+          - not_null
+      - name: plazo_dias
+        description: Tiempo de entrega en días.

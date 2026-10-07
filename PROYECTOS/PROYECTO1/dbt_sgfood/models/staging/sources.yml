@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: sucursal
+      - name: categoria
+      - name: marca
+      - name: producto
+      - name: cliente
+      - name: venta
+      - name: venta_detalle
+      - name: inventario_bodega
+      - name: metas_ventas
+      - name: promociones
+      - name: proveedores_precios
+      - name: devoluciones

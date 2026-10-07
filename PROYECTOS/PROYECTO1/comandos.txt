@@ -1,0 +1,9 @@
+En el contenedor existirán las 2 bases de datos. La de sgfood que da el proyecto y la nueva base de datos de integración de csv y sql.
+
+docker run --name sgfood_postgres \
+  -e POSTGRES_USER=<usuario> \
+  -e POSTGRES_PASSWORD=<password> \
+  -e POSTGRES_DB=sgfood_dw \
+  -p 5433:5432 \
+  -v sgfood_pgdata:/var/lib/postgresql/data \
+  -d postgres:16
