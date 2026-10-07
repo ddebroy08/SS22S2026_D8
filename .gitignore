@@ -1,3 +1,12 @@
+# macOS system files
+.DS_Store
+
+# Entorno virtual
 .venv/
+
+# Python cache
 __pycache__/
 *.pyc
+
+# Archivos de soporte y scripts generadores de la Práctica 2
+PRACTICAS/PRACTICA2/soporte/
