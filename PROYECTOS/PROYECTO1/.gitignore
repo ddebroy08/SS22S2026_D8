@@ -7,3 +7,15 @@
 # Caché de Python
 __pycache__/
 *.pyc
+
+# Logs y artefactos de ejecución
+logs/
+airflow/logs/
+dbt_sgfood/target/
+dbt_sgfood/logs/
+dbt_sgfood/dbt_packages/
+
+# Herramientas locales
+CLAUDE.md
+.claude/
+docs/GUIA_DEL_PROYECTO.md

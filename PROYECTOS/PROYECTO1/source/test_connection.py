@@ -1,23 +1,31 @@
-from connectiondb import get_oltp_connection
+import sys
+
+from sqlalchemy import text
+
+from connectiondb import get_dw_engine, get_oltp_engine
 
 
 def main():
-    try:
-        conn = get_oltp_connection()
+    fallos = 0
+    for nombre, get_engine in (("OLTP", get_oltp_engine), ("DW", get_dw_engine)):
+        engine = get_engine()
+        try:
+            with engine.connect() as conn:
+                version = conn.execute(text("SELECT version();")).scalar()
 
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT version();")
-            version = cursor.fetchone()
+            print(f"Conexión exitosa a {nombre}")
+            print(f"PostgreSQL: {version}")
 
-            print("Conexión exitosa")
-            print(f"PostgreSQL: {version[0]}")
+        except Exception as e:
+            print(f"Error de conexión a {nombre}:")
+            print(e)
+            fallos += 1
 
-        conn.close()
+        finally:
+            engine.dispose()
 
-    except Exception as e:
-        print("Error de conexión:")
-        print(e)
+    return fallos
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(1 if main() else 0)

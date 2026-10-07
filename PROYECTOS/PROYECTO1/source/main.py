@@ -1,17 +1,24 @@
+import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import inspect, text
+
+from connectiondb import get_dw_engine, get_oltp_engine
 
 
-load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+log = logging.getLogger("carga_raw")
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "Data-20260929"
+DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "Data-20260929"))
 
 
 CSV_FILES = {
@@ -21,15 +28,6 @@ CSV_FILES = {
     "proveedores_precios": "proveedores_precios.csv",
     "devoluciones": "devoluciones.csv",
 }
-
-OLTP_URL = (
-    f"postgresql+psycopg://"
-    f"{os.getenv('OLTP_USER')}:"
-    f"{os.getenv('OLTP_PASSWORD')}@"
-    f"{os.getenv('OLTP_HOST')}:"
-    f"{os.getenv('OLTP_PORT')}/"
-    f"{os.getenv('OLTP_DB')}"
-)
 
 OLTP_SCHEMA = "oltp_sgfood"
 
@@ -42,15 +40,6 @@ OLTP_TABLES = [
     "venta",
     "venta_detalle",
 ]
-
-DW_URL = (
-    f"postgresql+psycopg://"
-    f"{os.getenv('DW_USER')}:"
-    f"{os.getenv('DW_PASSWORD')}@"
-    f"{os.getenv('DW_HOST')}:"
-    f"{os.getenv('DW_PORT')}/"
-    f"{os.getenv('DW_DB')}"
-)
 
 
 def extraer_csv(nombre_archivo: str) -> pd.DataFrame:
@@ -80,6 +69,9 @@ def extraer_oltp(tabla: str, engine) -> pd.DataFrame:
         params={"esquema": OLTP_SCHEMA, "tabla": tabla},
     )["column_name"]
 
+    if columnas.empty:
+        raise ValueError(f"La tabla {OLTP_SCHEMA}.{tabla} no existe en la fuente")
+
     select_cols = ", ".join(f'"{c}"::text AS "{c}"' for c in columnas)
     consulta = f'SELECT {select_cols} FROM {OLTP_SCHEMA}."{tabla}"'
     return pd.read_sql(text(consulta), engine)
@@ -92,29 +84,61 @@ def cargar_raw(df: pd.DataFrame, tabla: str, origen: str, engine) -> None:
     df["_loaded_at"] = datetime.now(timezone.utc).isoformat()
     df["_source"] = origen
 
-    df.to_sql(
-        tabla,
-        engine,
-        schema="raw",
-        if_exists="replace",
-        index=False
-    )
+    with engine.begin() as conn:
+        if inspect(conn).has_table(tabla, schema="raw"):
+            conn.execute(text(f'TRUNCATE TABLE raw."{tabla}"'))
+            modo = "append"
+        else:
+            modo = "fail"
 
-    print(f"raw.{tabla}: {len(df)} filas cargadas")
+        df.to_sql(
+            tabla,
+            conn,
+            schema="raw",
+            if_exists=modo,
+            index=False
+        )
+
+    log.info("raw.%s: %s filas cargadas", tabla, len(df))
 
 
-if __name__ == "__main__":
+def cargar_oltp(dw_engine) -> None:
+    oltp_engine = get_oltp_engine()
+    try:
+        for tabla in OLTP_TABLES:
+            df = extraer_oltp(tabla, oltp_engine)
+            cargar_raw(df, tabla, f"oltp:{OLTP_SCHEMA}.{tabla}", dw_engine)
+    finally:
+        oltp_engine.dispose()
 
-    dw_engine = create_engine(DW_URL)
-    oltp_engine = create_engine(OLTP_URL)
 
-    for tabla in OLTP_TABLES:
-        df = extraer_oltp(tabla, oltp_engine)
-        cargar_raw(df, tabla, f"oltp:{OLTP_SCHEMA}.{tabla}", dw_engine)
-
+def cargar_csv(dw_engine) -> None:
     for tabla, archivo in CSV_FILES.items():
         df = extraer_csv(archivo)
         cargar_raw(df, tabla, f"csv:{archivo}", dw_engine)
 
-    oltp_engine.dispose()
-    dw_engine.dispose()
+
+def main(fuente: str = "todo") -> None:
+    dw_engine = get_dw_engine()
+    try:
+        with dw_engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
+
+        if fuente in ("todo", "oltp"):
+            cargar_oltp(dw_engine)
+        if fuente in ("todo", "csv"):
+            cargar_csv(dw_engine)
+    finally:
+        dw_engine.dispose()
+
+
+if __name__ == "__main__":
+    fuente = sys.argv[1] if len(sys.argv) > 1 else "todo"
+    if fuente not in ("todo", "oltp", "csv"):
+        sys.exit("Uso: python main.py [todo|oltp|csv]")
+
+    try:
+        main(fuente)
+    except Exception:
+        log.exception("La carga a raw falló")
+        sys.exit(1)

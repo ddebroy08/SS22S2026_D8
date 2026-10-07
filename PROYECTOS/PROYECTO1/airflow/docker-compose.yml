@@ -1,0 +1,82 @@
+x-airflow-common: &airflow-common
+  build: .
+  image: sgfood-airflow:2.10.5
+  user: "${AIRFLOW_UID:-50000}:0"
+  env_file:
+    - ../source/.env
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@airflow-db/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: America/Guatemala
+    AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: America/Guatemala
+    OLTP_HOST: ${SGFOOD_PG_HOST:-host.docker.internal}
+    OLTP_PORT: ${SGFOOD_PG_PORT:-5433}
+    DW_HOST: ${SGFOOD_PG_HOST:-host.docker.internal}
+    DW_PORT: ${SGFOOD_PG_PORT:-5433}
+    SGFOOD_HOME: /opt/sgfood
+    DBT_PROFILES_DIR: /opt/airflow/dbt_profiles
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./dbt_profiles:/opt/airflow/dbt_profiles:ro
+    - ../source:/opt/sgfood/source
+    - ../Data-20260929:/opt/sgfood/Data-20260929:ro
+    - ../dbt_sgfood:/opt/sgfood/dbt_sgfood
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  depends_on:
+    airflow-db:
+      condition: service_healthy
+
+services:
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  airflow_pgdata:
