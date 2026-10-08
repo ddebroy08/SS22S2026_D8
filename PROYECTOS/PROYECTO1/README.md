@@ -9,6 +9,7 @@ Flujo moderno de datos con **Python**, **Apache Airflow**, **dbt** y **PostgreSQ
 |---|---|
 | Diego Debroy | 202101923 |
 | Pablo Alejandro Marroquin Cutz | 202200214 |
+| Carlos Monterroso | 201903767 |
 
 ---
 
