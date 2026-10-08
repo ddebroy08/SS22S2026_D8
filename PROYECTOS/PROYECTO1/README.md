@@ -8,7 +8,7 @@ Flujo moderno de datos con **Python**, **Apache Airflow**, **dbt** y **PostgreSQ
 | Nombre | Carné |
 |---|---|
 | Diego Debroy | 202101923 |
-| _(completar)_ | _(completar)_ |
+| Pablo Alejandro Marroquin Cutz | 202200214 |
 
 ---
 
