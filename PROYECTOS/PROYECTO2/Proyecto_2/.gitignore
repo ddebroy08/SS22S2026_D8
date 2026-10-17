@@ -1,0 +1,5 @@
+# Material de apoyo / instrucciones internas (no forma parte de la entrega)
+docs/
+
+# macOS
+.DS_Store

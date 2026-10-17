@@ -1,0 +1,126 @@
+SELECT pickup_location_id,
+       COUNT(*)                       AS viajes,
+       ROUND(AVG(tip_amount), 2)      AS propina_prom,
+       ROUND(AVG(fare_amount), 2)     AS tarifa_prom
+FROM `bigquery-public-data.new_york_taxi_trips.tlc_yellow_trips_2022`
+WHERE pickup_datetime >= TIMESTAMP('2022-06-01')
+  AND pickup_datetime <  TIMESTAMP('2022-07-01')
+  AND pickup_location_id IN ('132', '138')
+GROUP BY pickup_location_id; -- at [30:1]
++--------------------+--------+--------------+-------------+
+| pickup_location_id | viajes | propina_prom | tarifa_prom |
++--------------------+--------+--------------+-------------+
+| 138                |  96138 |         6.12 |       32.73 |
+| 132                | 169981 |         7.19 |       46.87 |
++--------------------+--------+--------------+-------------+
+SELECT pickup_location_id,
+       COUNT(*)                       AS viajes,
+       ROUND(AVG(tip_amount), 2)      AS propina_prom,
+       ROUND(AVG(fare_amount), 2)     AS tarifa_prom
+FROM `ss22s2026-g8-proyecto2.nyc_taxi_p2.trips_base`
+WHERE pickup_datetime >= TIMESTAMP('2022-06-01')
+  AND pickup_datetime <  TIMESTAMP('2022-07-01')
+  AND pickup_location_id IN ('132', '138')
+GROUP BY pickup_location_id; -- at [41:1]
++--------------------+--------+--------------+-------------+
+| pickup_location_id | viajes | propina_prom | tarifa_prom |
++--------------------+--------+--------------+-------------+
+| 138                |  96138 |         6.12 |       32.73 |
+| 132                | 169981 |         7.19 |       46.87 |
++--------------------+--------+--------------+-------------+
+SELECT pickup_location_id,
+       COUNT(*)                       AS viajes,
+       ROUND(AVG(tip_amount), 2)      AS propina_prom,
+       ROUND(AVG(fare_amount), 2)     AS tarifa_prom
+FROM `ss22s2026-g8-proyecto2.nyc_taxi_p2.trips_opt`
+WHERE pickup_datetime >= TIMESTAMP('2022-06-01')
+  AND pickup_datetime <  TIMESTAMP('2022-07-01')
+  AND pickup_location_id IN ('132', '138')
+GROUP BY pickup_location_id; -- at [52:1]
++--------------------+--------+--------------+-------------+
+| pickup_location_id | viajes | propina_prom | tarifa_prom |
++--------------------+--------+--------------+-------------+
+| 132                | 169981 |         7.19 |       46.87 |
+| 138                |  96138 |         6.12 |       32.73 |
++--------------------+--------+--------------+-------------+
+SELECT FORMAT_TIMESTAMP('%Y-%m', pickup_datetime) AS mes,
+       COUNT(*)                   AS viajes,
+       ROUND(AVG(total_amount), 2) AS total_prom
+FROM `bigquery-public-data.new_york_taxi_trips.tlc_yellow_trips_2022`
+WHERE pickup_location_id = '161'
+GROUP BY mes ORDER BY mes; -- at [69:1]
++---------+--------+------------+
+|   mes   | viajes | total_prom |
++---------+--------+------------+
+| 2002-10 |      7 |      15.29 |
+| 2008-12 |      5 |      31.05 |
+| 2009-01 |      2 |      33.08 |
+| 2022-01 |  88234 |      16.22 |
+| 2022-02 | 114598 |      16.99 |
+| 2022-03 | 152357 |      17.72 |
+| 2022-04 | 140788 |      18.31 |
+| 2022-05 | 138546 |      19.17 |
+| 2022-06 | 139959 |      18.86 |
+| 2022-07 | 134064 |      17.99 |
+| 2022-08 | 135377 |      17.83 |
+| 2022-09 | 117753 |      19.63 |
+| 2022-10 | 147756 |      19.18 |
+| 2022-11 | 140024 |      18.84 |
++---------+--------+------------+
+SELECT FORMAT_TIMESTAMP('%Y-%m', pickup_datetime) AS mes,
+       COUNT(*)                   AS viajes,
+       ROUND(AVG(total_amount), 2) AS total_prom
+FROM `ss22s2026-g8-proyecto2.nyc_taxi_p2.trips_base`
+WHERE pickup_location_id = '161'
+GROUP BY mes ORDER BY mes; -- at [77:1]
++---------+--------+------------+
+|   mes   | viajes | total_prom |
++---------+--------+------------+
+| 2022-01 |  88234 |      16.22 |
+| 2022-02 | 114598 |      16.99 |
+| 2022-03 | 152357 |      17.72 |
+| 2022-04 | 140788 |      18.31 |
+| 2022-05 | 138546 |      19.17 |
+| 2022-06 | 139959 |      18.86 |
+| 2022-07 | 134064 |      17.99 |
+| 2022-08 | 135377 |      17.83 |
+| 2022-09 | 117753 |      19.63 |
+| 2022-10 | 147756 |      19.18 |
+| 2022-11 | 140024 |      18.84 |
++---------+--------+------------+
+SELECT FORMAT_TIMESTAMP('%Y-%m', pickup_datetime) AS mes,
+       COUNT(*)                   AS viajes,
+       ROUND(AVG(total_amount), 2) AS total_prom
+FROM `ss22s2026-g8-proyecto2.nyc_taxi_p2.trips_opt`
+WHERE pickup_location_id = '161'
+GROUP BY mes ORDER BY mes; -- at [85:1]
++---------+--------+------------+
+|   mes   | viajes | total_prom |
++---------+--------+------------+
+| 2022-01 |  88234 |      16.22 |
+| 2022-02 | 114598 |      16.99 |
+| 2022-03 | 152357 |      17.72 |
+| 2022-04 | 140788 |      18.31 |
+| 2022-05 | 138546 |      19.17 |
+| 2022-06 | 139959 |      18.86 |
+| 2022-07 | 134064 |      17.99 |
+| 2022-08 | 135377 |      17.83 |
+| 2022-09 | 117753 |      19.63 |
+| 2022-10 | 147756 |      19.18 |
+| 2022-11 | 140024 |      18.84 |
++---------+--------+------------+
+SELECT
+  REGEXP_EXTRACT(query, r'COMPARACION_\w+')                 AS consulta,
+  ROUND(total_bytes_processed / POW(1024, 2), 1)            AS mb_procesados,
+  ROUND(total_bytes_billed    / POW(1024, 2), 1)            AS mb_facturados,
+  TIMESTAMP_DIFF(end_time, start_time, MILLISECOND)         AS ms,
+  total_slot_ms                                             AS slot_ms,
+  cache_hit
+FROM `region-us`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+WHERE creation_time > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 HOUR)
+  AND job_type = 'QUERY'
+  AND state = 'DONE'
+  AND error_result IS NULL
+  AND REGEXP_CONTAINS(query, r'-- COMPARACION_\w+')
+  AND NOT REGEXP_CONTAINS(query, r'INFORMATION_SCHEMA')
+ORDER BY consulta, creation_time DESC; -- at [97:1]
