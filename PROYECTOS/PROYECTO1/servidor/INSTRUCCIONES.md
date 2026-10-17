@@ -14,7 +14,7 @@ Al terminar quedan corriendo:
 
 - En el servidor corren **otros proyectos** (dspace, moodle `eps`/`eps45`, keycloak, grafana, portainer, my_secret_place, etc.). **No detener, borrar ni modificar ningún contenedor, volumen o red que no pertenezca al proyecto `sgfood`.**
 - Prohibido usar `docker system prune`, `docker volume prune`, `docker rm` o `docker stop` sobre contenedores ajenos.
-- Todos los comandos `docker compose` se ejecutan desde `~/SS22S2026_D8/PROYECTOS/PROYECTO1/servidor`. El proyecto Compose se llama `sgfood`, así que sus contenedores empiezan con `sgfood-`.
+- Todos los comandos `docker compose` se ejecutan desde `~/sgfood-deploy/servidor`. El proyecto Compose se llama `sgfood`, así que sus contenedores empiezan con `sgfood-`.
 - No subir el archivo `.env` al repositorio (ya está en `.gitignore`).
 
 ---
@@ -30,19 +30,17 @@ ss -tlnp | grep -E ':(5434|8090|8091)\b' || echo "Puertos libres"
 
 Si alguno de los puertos 5434, 8090 u 8091 está ocupado, se elige otro libre y se cambia en `.env` durante el paso 2 (`SGFOOD_DB_PORT`, `AIRFLOW_PORT`, `DBT_DOCS_PORT`).
 
-## Paso 1. Obtener el repositorio
+## Paso 1. Ubicar los archivos
+
+El servidor no tiene acceso a GitHub. El usuario copia la carpeta desde su compu Windows con `scp`, y queda en `~/sgfood-deploy`:
 
 ```bash
-cd ~
-if [ -d SS22S2026_D8/.git ]; then
-  git -C SS22S2026_D8 pull
-else
-  git clone https://github.com/ddebroy08/SS22S2026_D8.git
-fi
-cd ~/SS22S2026_D8/PROYECTOS/PROYECTO1/servidor
+cd ~/sgfood-deploy/servidor
+# Por si algún archivo llegó con finales de línea de Windows
+sed -i 's/\r$//' initdb/01_sgfood.sh .env.example
 ```
 
-**Verificar:** existen `docker-compose.yml`, `initdb/01_sgfood.sh` y `../Data-20260929/sgfood_oltp.sql`.
+**Verificar:** existen `docker-compose.yml`, `initdb/01_sgfood.sh`, `../airflow/Dockerfile`, `../dbt_sgfood/dbt_project.yml` y `../Data-20260929/sgfood_oltp.sql`. Si no existe `~/sgfood-deploy`, detenerse y pedirle al usuario que copie la carpeta (ver la sección *Copiar desde Windows* al final).
 
 ## Paso 2. Configurar variables de entorno
 
@@ -181,9 +179,9 @@ Decirle al usuario:
    - Airflow: `http://100.65.109.0:8090` (usuario y contraseña del `.env`)
    - Documentación dbt: `http://100.65.109.0:8091`
    - PostgreSQL: host `100.65.109.0`, puerto `5434`, bases `sgfood_dw` y `sgfood_oltp`. Se puede registrar en el pgAdmin que ya existe en `http://100.65.109.0:8085`.
-3. Qué archivos de evidencia quedaron en `PROYECTOS/PROYECTO1/evidencias/salidas/`.
+3. Qué archivos de evidencia quedaron en `~/sgfood-deploy/evidencias/salidas/`.
 
-No hacer commit ni push sin que el usuario lo pida.
+Avisarle al usuario que puede traer las evidencias a su compu con el comando de la sección *Traer las evidencias a Windows*.
 
 ---
 
@@ -197,7 +195,7 @@ docker compose start                      # volver a iniciar
 docker compose down                       # quitar contenedores (los datos quedan en los volúmenes)
 ```
 
-Después de un `git pull` con cambios en DAGs, scripts o modelos dbt no hace falta reconstruir, porque están montados como volúmenes. Solo hay que reconstruir (`docker compose up -d --build`) si cambia `../airflow/Dockerfile` o `../airflow/requirements-pipeline.txt`.
+Si el usuario vuelve a copiar la carpeta con cambios en DAGs, scripts o modelos dbt no hace falta reconstruir, porque están montados como volúmenes. Solo hay que reconstruir (`docker compose up -d --build`) si cambia `../airflow/Dockerfile` o `../airflow/requirements-pipeline.txt`.
 
 ## Solución de problemas
 
@@ -210,3 +208,19 @@ Después de un `git pull` con cambios en DAGs, scripts o modelos dbt no hace fal
 | Webserver reinicia en bucle | poca memoria | `free -h`; revisar `docker compose logs airflow-webserver` |
 | `verificar_conexiones` falla | credenciales o la base no está lista | `docker compose ps` (sgfood-db healthy) y revisar `.env` |
 | La página de dbt docs muestra 403/404 | todavía no corre `dbt_docs_generate` | ejecutar el DAG (paso 6) y recargar |
+
+## Copiar desde Windows
+
+En PowerShell, en la compu del usuario (la carpeta `sgfood-deploy` está en el Escritorio):
+
+```powershell
+scp -r "$env:USERPROFILE\OneDrive\Escritorio\sgfood-deploy" pablo@100.65.109.0:~/
+```
+
+Si se vuelve a copiar con el proyecto ya levantado, el `.env` del servidor no se pierde, porque la carpeta de Windows no lo incluye.
+
+## Traer las evidencias a Windows
+
+```powershell
+scp -r pablo@100.65.109.0:~/sgfood-deploy/evidencias "$env:USERPROFILE\OneDrive\Escritorio\SS22S2026_D8\PROYECTOS\PROYECTO1\"
+```
