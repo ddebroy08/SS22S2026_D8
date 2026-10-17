@@ -1,0 +1,124 @@
+# Despliegue completo del Proyecto 1 en un servidor Linux con Docker.
+# Levanta: PostgreSQL de SG-Food (OLTP + DW), Airflow y un visor de la documentación dbt.
+# Uso: ver INSTRUCCIONES.md
+
+name: sgfood
+
+x-airflow-common: &airflow-common
+  build: ../airflow
+  image: sgfood-airflow:2.10.5
+  user: "${AIRFLOW_UID:-1000}:0"
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@airflow-db/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: America/Guatemala
+    AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: America/Guatemala
+    OLTP_HOST: sgfood-db
+    OLTP_PORT: "5432"
+    OLTP_DB: sgfood_oltp
+    OLTP_USER: ${SGFOOD_DB_USER}
+    OLTP_PASSWORD: ${SGFOOD_DB_PASSWORD}
+    DW_HOST: sgfood-db
+    DW_PORT: "5432"
+    DW_DB: sgfood_dw
+    DW_USER: ${SGFOOD_DB_USER}
+    DW_PASSWORD: ${SGFOOD_DB_PASSWORD}
+    SGFOOD_HOME: /opt/sgfood
+    DBT_PROFILES_DIR: /opt/airflow/dbt_profiles
+  volumes:
+    - ../airflow/dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ../airflow/dbt_profiles:/opt/airflow/dbt_profiles:ro
+    - ../source:/opt/sgfood/source
+    - ../Data-20260929:/opt/sgfood/Data-20260929:ro
+    - ../dbt_sgfood:/opt/sgfood/dbt_sgfood
+  depends_on:
+    airflow-db:
+      condition: service_healthy
+    sgfood-db:
+      condition: service_healthy
+
+services:
+  # OLTP (sgfood_oltp) y Data Warehouse (sgfood_dw) en el mismo PostgreSQL
+  sgfood-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${SGFOOD_DB_USER}
+      POSTGRES_PASSWORD: ${SGFOOD_DB_PASSWORD}
+      POSTGRES_DB: sgfood_dw
+    ports:
+      - "${SGFOOD_DB_PORT:-5434}:5432"
+    volumes:
+      - sgfood_pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - ../Data-20260929/sgfood_oltp.sql:/sgfood/sgfood_oltp.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d sgfood_dw"]
+      interval: 10s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  # Metadatos de Airflow
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT:-8090}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Sirve la documentación y el lineage que genera la tarea dbt_docs_generate
+  dbt-docs:
+    image: nginx:alpine
+    ports:
+      - "${DBT_DOCS_PORT:-8091}:80"
+    volumes:
+      - ../dbt_sgfood/target:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+volumes:
+  sgfood_pgdata:
+  airflow_pgdata:
