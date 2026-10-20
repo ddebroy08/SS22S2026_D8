@@ -5,11 +5,11 @@
 
 ## Integrantes
 
-| Integrante | Responsabilidad |
-|---|---|
-| Estuardo Santos | Datos, optimización, modelos base y repositorio |
-| Pablo *(completar apellido/carné)* | Evaluación de modelos y predicciones |
-| Diego *(completar apellido/carné)* | Análisis exploratorio y visualización |
+| Integrante | Carné | Responsabilidad |
+|---|---|---|
+| Estuardo Santos | *(completar)* | Datos, optimización, modelos base y repositorio |
+| Pablo Alejandro Marroquin Cutz | 202200214 | Evaluación de modelos y predicciones |
+| Diego Debroy | 202101923 | Análisis exploratorio, visualización y revisión final |
 
 ## Estructura del repositorio
 
@@ -24,13 +24,21 @@ Proyecto_2/
 │   ├── 04_comparacion_bytes.sql           # estándar vs. optimizada
 │   ├── 05_tabla_ml.sql                    # tabla limpia + features + split
 │   ├── 06_modelos_bqml.sql                # entrenamiento de modelos
-│   └── 07_evidencias_split_entrenamiento.sql
+│   ├── 07_evidencias_split_entrenamiento.sql
+│   ├── 08_evaluacion_modelos.sql          # ML.EVALUATE, ROC, matriz de confusión   (Pablo)
+│   ├── 09_ajuste_hiperparametros.sql      # variantes _v2 y modelo elegido          (Pablo)
+│   ├── 10_predicciones.sql                # ML.PREDICT sobre registros nuevos       (Pablo)
+│   ├── 11_rolling_forecast.sql            # rolling forecast W1/W2                  (Pablo)
+│   ├── 12_eda_temporal.sql                # hora, día, mes                          (Diego)
+│   ├── 13_eda_pago_zonas.sql              # tipo de pago, tarifa, zonas, rutas      (Diego)
+│   ├── 14_eda_tarifas_propinas.sql        # tarifas y propinas                      (Diego)
+│   └── 15_tablas_dashboard.sql            # tablas agregadas para Looker Studio     (Diego)
+├── informe_visual/GUIA_TABLERO.md         # diseño y fuentes del tablero
 ├── scripts/run_sql.sh                     # ejecuta un .sql con la CLI bq
 └── evidencias/
     ├── capturas/                          # capturas de la consola de BigQuery
     └── salidas/                           # salidas en texto de las consultas
 ```
-*(Pablo y Diego agregan sus scripts `08_…`, `09_…` en `sql/`.)*
 
 ---
 
@@ -247,11 +255,39 @@ Resultados en `rolling_forecast_diario` y `rolling_forecast_resumen` (capturas 3
 
 **Cómo leerlo:** se espera que el boosted tenga menor MAPE diario, porque conoce las tarifas reales de cada viaje del día; ARIMA no las conoce y solo extrapola la serie. ARIMA, en cambio, sirve para planificar *antes* de que ocurran los viajes. Si el error de W2 es parecido o menor al de W1, reentrenar con un mes más de datos mantiene o mejora el desempeño.
 
-## 10. Hallazgos relevantes *(sección de Diego)*
-*(Pendiente: patrones por hora/día/mes, tipo de pago, zonas, tarifas y propinas.)*
+## 10. Hallazgos relevantes *(Diego)*
+Scripts exploratorios comentados: [`12_eda_temporal.sql`](sql/12_eda_temporal.sql) (hora, día, mes, mapa de calor, días extremos), [`13_eda_pago_zonas.sql`](sql/13_eda_pago_zonas.sql) (tipo de pago, `rate_code`, zonas, rutas, aeropuertos), [`14_eda_tarifas_propinas.sql`](sql/14_eda_tarifas_propinas.sql) (distribuciones, correlaciones, propina por distancia/hora/zona) y [`15_tablas_dashboard.sql`](sql/15_tablas_dashboard.sql) (tablas agregadas para el tablero). Usan agregaciones (`COUNT`, `AVG`, `SUM`, `CORR`, `APPROX_QUANTILES`), funciones temporales (`EXTRACT`, `DATE_TRUNC`, `FORMAT_TIMESTAMP`, `TIMESTAMP_DIFF`), funciones de ventana (`LAG`, `RANK`, media móvil), `PIVOT`, `QUALIFY`, `CASE` y `JOIN` con el catálogo de zonas `taxi_zone_geom`. Todas consultan `trips_opt` o `ml_trips_clean` filtrando por fecha para aprovechar la partición.
+
+Los hallazgos **H1–H5** ya están respaldados por las salidas de Estuardo ([`01_exploracion_dataset.txt`](evidencias/salidas/01_exploracion_dataset.txt), [`02_calidad_datos.txt`](evidencias/salidas/02_calidad_datos.txt)). Los **H6–H10** dependen de los scripts 12–14: la consulta que los sustenta y su captura se indican en cada uno, y las cifras marcadas con `—` se completan al ejecutarlos.
+
+### Temporales
+- **H1 — Enero es el mes más bajo y la demanda se recupera en primavera.** Enero 2022 tuvo 2,463,900 viajes (≈ 79.5 mil/día) frente a ≈ 120 mil/día en abril y 118.6 mil/día en octubre, el máximo absoluto con 3,675,372 viajes. Es decir, **+49 %** entre enero y octubre. Coincide con la ola de Ómicron y el invierno de enero 2022.
+- **H2 — Bache de verano.** Julio–septiembre baja a ≈ 102–106 mil viajes/día (julio −10.8 % respecto a junio). Se explica por vacaciones y menos desplazamientos laborales y de oficina en Manhattan. La demanda repunta en octubre.
+- **H6 — Horas pico y día de la semana** (consultas 12.2–12.4, capturas 41–43). Picos de viajes: — h entre semana y — h los fines de semana. El tráfico baja la velocidad promedio a — mph en la hora pico, frente a — mph de madrugada. Día con más viajes por día: —.
+
+### Categóricas (tipo de pago y tarifa)
+- **H3 — La tarjeta domina y la propina en efectivo no existe en los datos.** Tarjeta 75.94 % de los viajes, efectivo 19.59 %, sin dato 3.43 %, disputa 0.57 % y sin cargo 0.48 %. En efectivo, el **99.98 %** de los viajes tiene propina = 0: no es que no se dé propina, sino que **no se registra**. Por eso todo el análisis de propinas y los modelos usan solo pagos con tarjeta. Con tarjeta, solo el 3.97 % deja propina 0 y el promedio es 3.41 USD.
+- **H4 — La tarifa estándar es el 91.3 % de los viajes.** Le siguen JFK con tarifa plana (3.76 %), negociada (0.78 %), código desconocido 99 (0.33 %), Newark (0.27 %) y Nassau/Westchester (0.13 %). Los viajes al aeropuerto son pocos, pero tienen la tarifa y la propina más altas (consulta 13.7, captura 50: propina promedio JFK — USD vs. resto — USD).
+
+### Económicas
+- **H5 — Los viajes típicos son cortos y baratos, con colas extremas que son errores.** Mediana de tarifa 10 USD, propina 2.16 USD, distancia 1.9 mi y duración 12.2 min. El percentil 99 es 60 USD y 20 mi, pero los máximos (401,092 USD, 389,678 mi, 10 millones de minutos) son errores de captura; por eso se aplicaron los filtros de la sección 1.
+- **H7 — La propina con tarjeta se concentra en los botones sugeridos** (consulta 14.2, captura 52). — % de los viajes queda entre 20–25 % de la tarifa y — % entre 25–35 %. Esto explica por qué el modelo de clasificación `high_tip` tiene poco poder predictivo (sección 9.3): el porcentaje depende sobre todo del botón que elige el pasajero, no del viaje.
+- **H8 — El monto de la propina sigue a la tarifa, pero el porcentaje no** (consultas 14.3–14.4, capturas 53–54). Correlación propina–tarifa = —, propina–distancia = —, y % de propina–tarifa = —. Por eso `fare_amount`, `trip_distance` y `trip_duration_min` son las features más fuertes del regresor.
+
+### Geográficas
+- **H9 — La demanda se concentra en Manhattan** (consultas 13.4–13.5, capturas 48–49). Las 15 zonas de origen con más viajes acumulan — % del total. El — % de los viajes empieza y termina en Manhattan. La ruta más frecuente es —.
+- **H10 — Zonas de mayor propina** (consulta 14.7, captura 56). Las zonas con más % de propina son —; los aeropuertos destacan en monto (USD) por la distancia, no en porcentaje.
 
 ## 11. Informe visual
-Enlace a Looker Studio: *(pendiente)*
+**Enlace al tablero de Looker Studio:** *(pegar aquí el enlace público al crear el tablero)*
+
+Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](informe_visual/GUIA_TABLERO.md). Resumen:
+
+| Página | Visualizaciones | Fuentes |
+|---|---|---|
+| 1. Exploración temporal y de pago | V1 serie diaria de viajes y propina · V2 mapa de calor hora × día · V3 tipo de pago por mes | `dash_diario`, `dash_hora_dia`, `dash_pago_mensual` |
+| 2. Zonas, tarifas y propinas | V4 mapa coroplético por zona · V5 top zonas · V6 propina vs. distancia | `dash_zonas`, `dash_distancia_propina` |
+| 3. Modelos y predicciones | P1 real vs. predicho (nov) · P2 **Rolling Forecast** W1/W2 boosted vs. ARIMA · P3 error por ventana · P4 comparación de modelos · P5 curva ROC · P6 viajes hipotéticos | `pred_diaria_nov`, `rolling_forecast_*`, `eval_*`, `pred_viajes_hipoteticos` |
 
 ## 12. Índice de evidencias (`evidencias/capturas/`)
 
@@ -262,11 +298,42 @@ Enlace a Looker Studio: *(pendiente)*
 | Comparación estándar vs. optimizada | [11](evidencias/capturas/11_comparacion_1A_publica.png), [12](evidencias/capturas/12_comparacion_1B_base.png), [13](evidencias/capturas/13_comparacion_1C_opt.png), [14](evidencias/capturas/14_comparacion_2A_publica.png), [15](evidencias/capturas/15_comparacion_2B_base.png), [16](evidencias/capturas/16_comparacion_2C_opt.png), [17 (resumen)](evidencias/capturas/17_resumen_comparacion.png) |
 | Tabla ML y split | [18](evidencias/capturas/18_tabla_ml_filas.png), [19](evidencias/capturas/19_split_temporal.png), [20](evidencias/capturas/20_split_sin_solapamiento.png), [21a](evidencias/capturas/21a_features_modelos.png)/[21b](evidencias/capturas/21b_features_modelos.png) |
 | Entrenamiento de modelos | [22a](evidencias/capturas/22a_detalles_linear.png)/[22b](evidencias/capturas/22b_entrenamiento_linear.png), [23a](evidencias/capturas/23a_detalles_logistic.png)/[23b](evidencias/capturas/23b_entrenamiento_logistic.png), [24a](evidencias/capturas/24a_detalles_boosted.png)/[24b](evidencias/capturas/24b_entrenamiento_boosted.png), [25a](evidencias/capturas/25a_training_info_boosted.png)/[25b](evidencias/capturas/25b_training_info_logistic.png)/[25c](evidencias/capturas/25c_training_info_linear.png) |
+| Evaluación de modelos *(pendiente de captura, `08`/`09`)* | 26 eval regresión · 27 eval clasificación · 28 matriz de confusión · 29 umbral óptimo · 30 global explain · 31 training info v2 · 32 comparación hiperparámetros · 33 modelo elegido |
+| Predicciones y Rolling Forecast *(pendiente, `10`/`11`)* | 34 tabla de predicciones · 35 resumen predicciones · 36 viajes hipotéticos · 37 rolling diario · 38 rolling resumen |
+| Análisis exploratorio *(pendiente, `12`–`15`)* | 40 mensual · 41 por hora · 42 día de semana · 43 heatmap · 44 días extremos · 45 tipo de pago · 46 pago mensual · 47 rate code · 48 top zonas · 49 top rutas · 50 aeropuertos · 51 descriptivas · 52 % propina · 53 distancia-tarifa · 54 correlaciones · 55 propina por hora · 56 zonas propina · 57 tablas dashboard |
+| Tablero *(pendiente)* | 58 página exploratoria · 59 página geográfica · 60 página de predicciones |
 
-Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/).
+Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pendientes se guardan en `evidencias/capturas/` con el número indicado en el comentario de cada consulta.
 
 ## 13. Cómo reproducir
 1. Crear un proyecto de Google Cloud con facturación activa y autenticar la CLI (`gcloud auth login`, `gcloud config set project <ID>`).
 2. Reemplazar `ss22s2026-g8-proyecto2` por el ID del proyecto en `sql/*.sql`.
-3. Ejecutar en orden con `./scripts/run_sql.sh sql/<archivo>.sql`: `00 → 03 → 05 → 06`. Los scripts `01`, `02`, `04` y `07` son de exploración/evidencia y se ejecutan por bloques en la consola de BigQuery (para `04`, con la caché de consultas desactivada).
+3. Ejecutar en orden con `./scripts/run_sql.sh sql/<archivo>.sql`: `00 → 03 → 05 → 06 → 08 → 09 → 10 → 11 → 15`. Los scripts `01`, `02`, `04`, `07` y `12`–`14` son de exploración/evidencia y se ejecutan por bloques en la consola de BigQuery (para `04`, con la caché de consultas desactivada).
 4. El dataset debe crearse en la región `US`, igual que el dataset público.
+5. Costo aproximado: `09` y `11` entrenan 5 modelos adicionales (3 sobre muestras del 25 %). Los modelos ARIMA_PLUS usan una serie de ~330 filas y su costo es despreciable.
+6. Crear el tablero siguiendo [`informe_visual/GUIA_TABLERO.md`](informe_visual/GUIA_TABLERO.md) y pegar el enlace en la sección 11.
+
+## 14. Revisión final contra la rúbrica
+
+| Criterio (puntos) | Dónde se cumple | Estado |
+|---|---|---|
+| Requisito: BigQuery + NYC Taxi 2022 con ≥ 1 M registros | Sección 1 (36,256,539 registros), captura 02 | ✅ |
+| Requisito: optimización y clustering obligatorio | Sección 3, `03`, capturas 07–10 | ✅ |
+| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ⏳ falta el enlace y las capturas del tablero |
+| 1.1 Conexión y comprensión del dataset (8) | Sección 1, `01`, `02` | ✅ |
+| 1.2 Consultas SQL avanzadas y transformaciones (8) | `05`, `12`–`15` | ✅ scripts · ⏳ capturas 40–57 |
+| 1.3 Optimización con particiones y clustering (12) | Sección 3, `03`, `04` | ✅ |
+| 1.4 Al menos 2 modelos en BigQuery ML (8) | Sección 8, `06` (3 modelos) + `09` (3 variantes) + `11` (rolling) | ✅ |
+| 1.5 Evaluación y comparación con métricas e hiperparámetros (12) | Sección 9, `08`, `09` | ✅ scripts · ⏳ llenar valores `—` |
+| 1.6 Data leakage y split (12) | Sección 7 y 9.2, `05`, `07` | ✅ |
+| 2.1 Análisis de patrones y tendencias (10) | Sección 10 (H1–H10) | ✅ H1–H5 · ⏳ cifras H6–H10 |
+| 2.2 Visualización exploratoria y de predicciones (10) | Sección 11, `informe_visual/` | ⏳ crear el tablero |
+| 2.3 Ingeniería de características (10) | Sección 5 | ✅ |
+| 2.4 Variables de entrada, salida y objetivo (5) | Sección 6 | ✅ |
+| 2.5 Comparación estándar vs. optimizada (5) | Sección 3, capturas 11–17 | ✅ |
+
+**Pendientes antes de entregar** (requieren acceso al proyecto GCP):
+1. Ejecutar `08`–`15` y tomar las capturas 26–57.
+2. Reemplazar los `—` de las secciones 9 y 10 con los valores obtenidos y confirmar el modelo elegido (9.5).
+3. Crear el tablero de Looker Studio, pegar el enlace en la sección 11 y guardar las capturas 58–60.
+4. Completar el carné de Estuardo en la tabla de integrantes.
