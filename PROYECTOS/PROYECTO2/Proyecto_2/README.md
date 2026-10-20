@@ -5,11 +5,11 @@
 
 ## Integrantes
 
-| Integrante | Responsabilidad |
-|---|---|
-| Estuardo Santos | Datos, optimización, modelos base y repositorio |
-| Pablo *(completar apellido/carné)* | Evaluación de modelos y predicciones |
-| Diego *(completar apellido/carné)* | Análisis exploratorio y visualización |
+| Integrante | Carné | Responsabilidad |
+|---|---|---|
+| Estuardo Santos | *(completar)* | Datos, optimización, modelos base y repositorio |
+| Pablo Alejandro Marroquin Cutz | 202200214 | Evaluación de modelos y predicciones |
+| Diego Debroy | 202101923 | Análisis exploratorio, visualización y revisión final |
 
 ## Estructura del repositorio
 
@@ -24,13 +24,21 @@ Proyecto_2/
 │   ├── 04_comparacion_bytes.sql           # estándar vs. optimizada
 │   ├── 05_tabla_ml.sql                    # tabla limpia + features + split
 │   ├── 06_modelos_bqml.sql                # entrenamiento de modelos
-│   └── 07_evidencias_split_entrenamiento.sql
+│   ├── 07_evidencias_split_entrenamiento.sql
+│   ├── 08_evaluacion_modelos.sql          # ML.EVALUATE, ROC, matriz de confusión   (Pablo)
+│   ├── 09_ajuste_hiperparametros.sql      # variantes _v2 y modelo elegido          (Pablo)
+│   ├── 10_predicciones.sql                # ML.PREDICT sobre registros nuevos       (Pablo)
+│   ├── 11_rolling_forecast.sql            # rolling forecast W1/W2                  (Pablo)
+│   ├── 12_eda_temporal.sql                # hora, día, mes                          (Diego)
+│   ├── 13_eda_pago_zonas.sql              # tipo de pago, tarifa, zonas, rutas      (Diego)
+│   ├── 14_eda_tarifas_propinas.sql        # tarifas y propinas                      (Diego)
+│   └── 15_tablas_dashboard.sql            # tablas agregadas para Looker Studio     (Diego)
+├── informe_visual/GUIA_TABLERO.md         # diseño y fuentes del tablero
 ├── scripts/run_sql.sh                     # ejecuta un .sql con la CLI bq
 └── evidencias/
     ├── capturas/                          # capturas de la consola de BigQuery
     └── salidas/                           # salidas en texto de las consultas
 ```
-*(Pablo y Diego agregan sus scripts `08_…`, `09_…` en `sql/`.)*
 
 ---
 
@@ -290,11 +298,42 @@ Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](inform
 | Comparación estándar vs. optimizada | [11](evidencias/capturas/11_comparacion_1A_publica.png), [12](evidencias/capturas/12_comparacion_1B_base.png), [13](evidencias/capturas/13_comparacion_1C_opt.png), [14](evidencias/capturas/14_comparacion_2A_publica.png), [15](evidencias/capturas/15_comparacion_2B_base.png), [16](evidencias/capturas/16_comparacion_2C_opt.png), [17 (resumen)](evidencias/capturas/17_resumen_comparacion.png) |
 | Tabla ML y split | [18](evidencias/capturas/18_tabla_ml_filas.png), [19](evidencias/capturas/19_split_temporal.png), [20](evidencias/capturas/20_split_sin_solapamiento.png), [21a](evidencias/capturas/21a_features_modelos.png)/[21b](evidencias/capturas/21b_features_modelos.png) |
 | Entrenamiento de modelos | [22a](evidencias/capturas/22a_detalles_linear.png)/[22b](evidencias/capturas/22b_entrenamiento_linear.png), [23a](evidencias/capturas/23a_detalles_logistic.png)/[23b](evidencias/capturas/23b_entrenamiento_logistic.png), [24a](evidencias/capturas/24a_detalles_boosted.png)/[24b](evidencias/capturas/24b_entrenamiento_boosted.png), [25a](evidencias/capturas/25a_training_info_boosted.png)/[25b](evidencias/capturas/25b_training_info_logistic.png)/[25c](evidencias/capturas/25c_training_info_linear.png) |
+| Evaluación de modelos *(pendiente de captura, `08`/`09`)* | 26 eval regresión · 27 eval clasificación · 28 matriz de confusión · 29 umbral óptimo · 30 global explain · 31 training info v2 · 32 comparación hiperparámetros · 33 modelo elegido |
+| Predicciones y Rolling Forecast *(pendiente, `10`/`11`)* | 34 tabla de predicciones · 35 resumen predicciones · 36 viajes hipotéticos · 37 rolling diario · 38 rolling resumen |
+| Análisis exploratorio *(pendiente, `12`–`15`)* | 40 mensual · 41 por hora · 42 día de semana · 43 heatmap · 44 días extremos · 45 tipo de pago · 46 pago mensual · 47 rate code · 48 top zonas · 49 top rutas · 50 aeropuertos · 51 descriptivas · 52 % propina · 53 distancia-tarifa · 54 correlaciones · 55 propina por hora · 56 zonas propina · 57 tablas dashboard |
+| Tablero *(pendiente)* | 58 página exploratoria · 59 página geográfica · 60 página de predicciones |
 
-Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/).
+Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pendientes se guardan en `evidencias/capturas/` con el número indicado en el comentario de cada consulta.
 
 ## 13. Cómo reproducir
 1. Crear un proyecto de Google Cloud con facturación activa y autenticar la CLI (`gcloud auth login`, `gcloud config set project <ID>`).
 2. Reemplazar `ss22s2026-g8-proyecto2` por el ID del proyecto en `sql/*.sql`.
-3. Ejecutar en orden con `./scripts/run_sql.sh sql/<archivo>.sql`: `00 → 03 → 05 → 06`. Los scripts `01`, `02`, `04` y `07` son de exploración/evidencia y se ejecutan por bloques en la consola de BigQuery (para `04`, con la caché de consultas desactivada).
+3. Ejecutar en orden con `./scripts/run_sql.sh sql/<archivo>.sql`: `00 → 03 → 05 → 06 → 08 → 09 → 10 → 11 → 15`. Los scripts `01`, `02`, `04`, `07` y `12`–`14` son de exploración/evidencia y se ejecutan por bloques en la consola de BigQuery (para `04`, con la caché de consultas desactivada).
 4. El dataset debe crearse en la región `US`, igual que el dataset público.
+5. Costo aproximado: `09` y `11` entrenan 5 modelos adicionales (3 sobre muestras del 25 %). Los modelos ARIMA_PLUS usan una serie de ~330 filas y su costo es despreciable.
+6. Crear el tablero siguiendo [`informe_visual/GUIA_TABLERO.md`](informe_visual/GUIA_TABLERO.md) y pegar el enlace en la sección 11.
+
+## 14. Revisión final contra la rúbrica
+
+| Criterio (puntos) | Dónde se cumple | Estado |
+|---|---|---|
+| Requisito: BigQuery + NYC Taxi 2022 con ≥ 1 M registros | Sección 1 (36,256,539 registros), captura 02 | ✅ |
+| Requisito: optimización y clustering obligatorio | Sección 3, `03`, capturas 07–10 | ✅ |
+| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ⏳ falta el enlace y las capturas del tablero |
+| 1.1 Conexión y comprensión del dataset (8) | Sección 1, `01`, `02` | ✅ |
+| 1.2 Consultas SQL avanzadas y transformaciones (8) | `05`, `12`–`15` | ✅ scripts · ⏳ capturas 40–57 |
+| 1.3 Optimización con particiones y clustering (12) | Sección 3, `03`, `04` | ✅ |
+| 1.4 Al menos 2 modelos en BigQuery ML (8) | Sección 8, `06` (3 modelos) + `09` (3 variantes) + `11` (rolling) | ✅ |
+| 1.5 Evaluación y comparación con métricas e hiperparámetros (12) | Sección 9, `08`, `09` | ✅ scripts · ⏳ llenar valores `—` |
+| 1.6 Data leakage y split (12) | Sección 7 y 9.2, `05`, `07` | ✅ |
+| 2.1 Análisis de patrones y tendencias (10) | Sección 10 (H1–H10) | ✅ H1–H5 · ⏳ cifras H6–H10 |
+| 2.2 Visualización exploratoria y de predicciones (10) | Sección 11, `informe_visual/` | ⏳ crear el tablero |
+| 2.3 Ingeniería de características (10) | Sección 5 | ✅ |
+| 2.4 Variables de entrada, salida y objetivo (5) | Sección 6 | ✅ |
+| 2.5 Comparación estándar vs. optimizada (5) | Sección 3, capturas 11–17 | ✅ |
+
+**Pendientes antes de entregar** (requieren acceso al proyecto GCP):
+1. Ejecutar `08`–`15` y tomar las capturas 26–57.
+2. Reemplazar los `—` de las secciones 9 y 10 con los valores obtenidos y confirmar el modelo elegido (9.5).
+3. Crear el tablero de Looker Studio, pegar el enlace en la sección 11 y guardar las capturas 58–60.
+4. Completar el carné de Estuardo en la tabla de integrantes.
