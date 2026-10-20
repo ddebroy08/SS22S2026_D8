@@ -160,8 +160,92 @@ Scripts: [`sql/06_modelos_bqml.sql`](sql/06_modelos_bqml.sql). Evidencias: captu
 
 *Loss = error cuadrático medio en M1 y M3; log-loss en M2. Los valores no son comparables entre algoritmos distintos; la comparación con RMSE, ROC-AUC y matriz de confusión se hace en la sección 9.*
 
-## 9. Evaluación y comparación de modelos *(sección de Pablo)*
-*(Pendiente: ML.EVALUATE, métricas, ajuste de hiperparámetros, modelo elegido, ML.PREDICT y Rolling Forecast.)*
+## 9. Evaluación y comparación de modelos *(Pablo)*
+Scripts: [`08_evaluacion_modelos.sql`](sql/08_evaluacion_modelos.sql), [`09_ajuste_hiperparametros.sql`](sql/09_ajuste_hiperparametros.sql), [`10_predicciones.sql`](sql/10_predicciones.sql), [`11_rolling_forecast.sql`](sql/11_rolling_forecast.sql).
+
+> **Pendiente de ejecución:** los scripts 08–11 están listos, pero los valores marcados con `—` se llenan después de correrlos en BigQuery (orden `08 → 09 → 10 → 11`). Cada consulta indica el nombre de la captura que le corresponde (`26_…` a `38_…`).
+
+### 9.1 Explicación de los modelos
+
+| Modelo | Algoritmo | Qué hace | Por qué se eligió |
+|---|---|---|---|
+| **M1** `model_tip_linear` | Regresión lineal con regularización L2 | Calcula la propina como una suma ponderada de las variables. Las categóricas (zona, hora, día, `rate_code`) se convierten en *one-hot*. | Es el modelo base: rápido, fácil de interpretar (cada coeficiente es "USD de propina por unidad") y sirve de referencia para los demás. |
+| **M2** `model_tip_logistic` | Regresión logística con `auto_class_weights` | Calcula la probabilidad de que la propina sea ≥ 20 % de la tarifa y la clasifica con un umbral. | Responde una pregunta de negocio distinta (¿el pasajero dará buena propina?) y se evalúa con ROC-AUC y matriz de confusión. |
+| **M3** `model_tip_boosted` | *Gradient boosted trees* (XGBoost) | Suma árboles de decisión; cada árbol corrige el error de los anteriores. | Capta relaciones no lineales e interacciones (p. ej., aeropuerto × hora) que la regresión lineal no puede representar. |
+
+### 9.2 Cómo se compara (sin *data leakage*)
+- **Mismo conjunto para todos:** los modelos se evalúan con `ML.EVALUATE` sobre **octubre 2022** (`split_set = 'eval'`), que ninguno usó para entrenar. M1/M2 entrenaron con ene–sep (`CUSTOM`). En M3 (`SEQ` 80/20 sobre ene–oct) el corte del 80 % cae a inicios de septiembre, así que octubre completo queda en su parte de evaluación.
+- **Selección vs. prueba:** octubre se usa para **elegir** modelo e hiperparámetros; **noviembre** (`ml_new_records`) se usa solo al final para confirmar. Elegir mirando noviembre sería filtrar información del conjunto de prueba.
+- **Baseline ingenuo:** predecir siempre la propina media de `train`. Un modelo útil debe tener un RMSE claramente menor.
+
+### 9.3 Métricas
+
+**Lo que ya mostró el entrenamiento** (`ML.TRAINING_INFO`, sección 8): la pérdida de evaluación de M1 es MSE = 2.474 → **RMSE ≈ 1.57 USD**, y la de M3 es MSE = 1.682 → **RMSE ≈ 1.30 USD**, cerca de 17 % menos error. En M2 la log-loss de evaluación (0.690) es casi igual a ln 2 ≈ 0.693, que es lo que obtiene un clasificador que responde al azar con clases balanceadas. Eso anticipa un ROC-AUC bajo: el porcentaje de propina con tarjeta depende sobre todo de los botones sugeridos en la pantalla del taxi (20/25/30 %), no de la ruta ni de la hora.
+
+**Regresión — `tip_amount`** (tabla `eval_regresion`, captura 26):
+
+| Modelo | Conjunto | RMSE | MAE | R² |
+|---|---|---:|---:|---:|
+| Baseline (media de train) | oct | — | — | ≈ 0 |
+| M1 `LINEAR_REG` | oct | — | — | — |
+| M3 `BOOSTED_TREE` | oct | — | — | — |
+| M1 `LINEAR_REG` | nov | — | — | — |
+| M3 `BOOSTED_TREE` | nov | — | — | — |
+
+**Clasificación — `high_tip`** (tablas `eval_clasificacion` y `eval_roc_logistic`, capturas 27–29):
+
+| Modelo | Conjunto | ROC-AUC | Precision | Recall | F1 | Accuracy | Log-loss |
+|---|---|---:|---:|---:|---:|---:|---:|
+| M2 `LOGISTIC_REG` | oct | — | — | — | — | — | — |
+| M2 `LOGISTIC_REG` | nov | — | — | — | — | — | — |
+
+- **Matriz de confusión** con umbral 0.5 y con el umbral de mejor F1, obtenido de `ML.ROC_CURVE` (consulta 8.5). Bajar el umbral sube el *recall* (detecta más propinas altas) a costa de la precisión.
+- **Importancia de variables** (`ML.GLOBAL_EXPLAIN`, captura 30): se espera que `fare_amount`, `trip_distance` y `trip_duration_min` dominen la regresión, porque la propina con tarjeta se calcula como porcentaje de la tarifa.
+
+### 9.4 Ajuste de hiperparámetros
+Cada modelo tiene una variante `_v2` que solo cambia hiperparámetros (mismas features, split y datos). La comparación sobre octubre queda en la tabla `eval_hiperparametros` (capturas 31–33).
+
+| Modelo | Base | Variante v2 | Hipótesis | Resultado (oct) |
+|---|---|---|---|---|
+| M1 lineal | `l2_reg = 0.1` | `l1_reg = 0.5`, `l2_reg = 1.0` | L1 elimina coeficientes de zonas poco frecuentes (~260 categorías) y reduce el sobreajuste. | RMSE base — / v2 — |
+| M2 logística | `l2_reg = 0.1`, `auto_class_weights = TRUE` | `l2_reg = 1.0`, sin pesos de clase | Sin pesos sube la *accuracy*, pero baja el *recall* de la clase minoritaria. ROC-AUC no depende del umbral, así que es la métrica justa para comparar. | ROC-AUC base — / v2 — |
+| M3 boosted | `depth = 6`, `learn_rate = 0.1`, ≤ 50 iter. | `depth = 10`, `learn_rate = 0.05`, ≤ 100 iter., `l2_reg = 1`, `colsample_bytree = 0.8` | Árboles más profundos captan más interacciones; la tasa menor y la regularización evitan el sobreajuste. | RMSE base — / v2 — |
+
+### 9.5 Modelo elegido y justificación
+- **Regresión:** se elige **M3 (`BOOSTED_TREE_REGRESSOR`)**, o su variante v2 si en la tabla `eval_hiperparametros` tiene menor RMSE en octubre. Motivos: (1) menor error que el modelo lineal desde el entrenamiento (RMSE ≈ 1.30 vs. 1.57 USD); (2) capta no linealidades, como la propina casi fija de los viajes de tarifa plana al aeropuerto (`rate_code = 2`); (3) su error en noviembre debe ser parecido al de octubre, lo que indica que no está sobreajustado. Lo que se sacrifica es interpretabilidad, que se compensa con `ML.GLOBAL_EXPLAIN`.
+- **Clasificación:** M2 se mantiene como modelo complementario. Con un ROC-AUC bajo, su valor está en mostrar que **el porcentaje de propina es poco predecible** con estas variables, a diferencia del monto en USD, que sí depende de la tarifa.
+
+### 9.6 Predicciones sobre registros nuevos (`ML.PREDICT`)
+- **`pred_nuevos_registros`** (2,357,445 viajes de noviembre, particionada por fecha): por cada viaje guarda la propina real, `pred_tip_linear`, `pred_tip_boosted`, `pred_high_tip`, `prob_high_tip` y el error de cada regresor (captura 34). Las predicciones negativas se recortan a 0, porque una propina no puede ser negativa.
+- **`pred_viajes_hipoteticos`:** 5 viajes escritos a mano (JFK → Midtown en hora pico, viaje corto en Midtown, madrugada de sábado, etc.) para mostrar el uso del modelo con datos que no existen en el dataset (captura 36).
+- **`pred_diaria_nov`:** agregado diario real vs. predicho. Es la fuente del gráfico de predicciones del tablero.
+
+| Métrica sobre noviembre | M1 lineal | M3 boosted |
+|---|---:|---:|
+| RMSE (USD) | — | — |
+| MAE (USD) | — | — |
+| % de viajes con error ≤ 1 USD | — | — |
+
+### 9.7 Comparación de 2 predicciones — *Rolling Forecast*
+Se valida con **origen móvil (ventana expansiva)**: en cada origen se reentrena solo con el pasado y se predice el mes siguiente.
+
+| Ventana | Entrena con | Predice | Modelos |
+|---|---|---|---|
+| **W1** | ene–sep 2022 | oct 2022 | `rf_boosted_w1`, `rf_arima_w1` |
+| **W2** | ene–oct 2022 | nov 2022 | `rf_boosted_w2`, `rf_arima_w2` |
+
+En cada ventana se comparan **dos predicciones** de la propina total diaria:
+1. **Boosted por viaje agregado:** predice la propina de cada viaje con las features y suma por día.
+2. **ARIMA_PLUS:** pronostica directamente la serie diaria solo con su historial (tendencia, estacionalidad semanal y feriados de EE. UU., como Thanksgiving el 24-nov). Incluye un intervalo de confianza del 90 %.
+
+Resultados en `rolling_forecast_diario` y `rolling_forecast_resumen` (capturas 37–38):
+
+| Ventana | Propina real del mes | Pred. boosted | Pred. ARIMA | MAPE boosted | MAPE ARIMA | % días dentro del IC 90 % |
+|---|---:|---:|---:|---:|---:|---:|
+| W1 (oct) | — | — | — | — | — | — |
+| W2 (nov) | — | — | — | — | — | — |
+
+**Cómo leerlo:** se espera que el boosted tenga menor MAPE diario, porque conoce las tarifas reales de cada viaje del día; ARIMA no las conoce y solo extrapola la serie. ARIMA, en cambio, sirve para planificar *antes* de que ocurran los viajes. Si el error de W2 es parecido o menor al de W1, reentrenar con un mes más de datos mantiene o mejora el desempeño.
 
 ## 10. Hallazgos relevantes *(sección de Diego)*
 *(Pendiente: patrones por hora/día/mes, tipo de pago, zonas, tarifas y propinas.)*
