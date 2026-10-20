@@ -247,11 +247,39 @@ Resultados en `rolling_forecast_diario` y `rolling_forecast_resumen` (capturas 3
 
 **Cómo leerlo:** se espera que el boosted tenga menor MAPE diario, porque conoce las tarifas reales de cada viaje del día; ARIMA no las conoce y solo extrapola la serie. ARIMA, en cambio, sirve para planificar *antes* de que ocurran los viajes. Si el error de W2 es parecido o menor al de W1, reentrenar con un mes más de datos mantiene o mejora el desempeño.
 
-## 10. Hallazgos relevantes *(sección de Diego)*
-*(Pendiente: patrones por hora/día/mes, tipo de pago, zonas, tarifas y propinas.)*
+## 10. Hallazgos relevantes *(Diego)*
+Scripts exploratorios comentados: [`12_eda_temporal.sql`](sql/12_eda_temporal.sql) (hora, día, mes, mapa de calor, días extremos), [`13_eda_pago_zonas.sql`](sql/13_eda_pago_zonas.sql) (tipo de pago, `rate_code`, zonas, rutas, aeropuertos), [`14_eda_tarifas_propinas.sql`](sql/14_eda_tarifas_propinas.sql) (distribuciones, correlaciones, propina por distancia/hora/zona) y [`15_tablas_dashboard.sql`](sql/15_tablas_dashboard.sql) (tablas agregadas para el tablero). Usan agregaciones (`COUNT`, `AVG`, `SUM`, `CORR`, `APPROX_QUANTILES`), funciones temporales (`EXTRACT`, `DATE_TRUNC`, `FORMAT_TIMESTAMP`, `TIMESTAMP_DIFF`), funciones de ventana (`LAG`, `RANK`, media móvil), `PIVOT`, `QUALIFY`, `CASE` y `JOIN` con el catálogo de zonas `taxi_zone_geom`. Todas consultan `trips_opt` o `ml_trips_clean` filtrando por fecha para aprovechar la partición.
+
+Los hallazgos **H1–H5** ya están respaldados por las salidas de Estuardo ([`01_exploracion_dataset.txt`](evidencias/salidas/01_exploracion_dataset.txt), [`02_calidad_datos.txt`](evidencias/salidas/02_calidad_datos.txt)). Los **H6–H10** dependen de los scripts 12–14: la consulta que los sustenta y su captura se indican en cada uno, y las cifras marcadas con `—` se completan al ejecutarlos.
+
+### Temporales
+- **H1 — Enero es el mes más bajo y la demanda se recupera en primavera.** Enero 2022 tuvo 2,463,900 viajes (≈ 79.5 mil/día) frente a ≈ 120 mil/día en abril y 118.6 mil/día en octubre, el máximo absoluto con 3,675,372 viajes. Es decir, **+49 %** entre enero y octubre. Coincide con la ola de Ómicron y el invierno de enero 2022.
+- **H2 — Bache de verano.** Julio–septiembre baja a ≈ 102–106 mil viajes/día (julio −10.8 % respecto a junio). Se explica por vacaciones y menos desplazamientos laborales y de oficina en Manhattan. La demanda repunta en octubre.
+- **H6 — Horas pico y día de la semana** (consultas 12.2–12.4, capturas 41–43). Picos de viajes: — h entre semana y — h los fines de semana. El tráfico baja la velocidad promedio a — mph en la hora pico, frente a — mph de madrugada. Día con más viajes por día: —.
+
+### Categóricas (tipo de pago y tarifa)
+- **H3 — La tarjeta domina y la propina en efectivo no existe en los datos.** Tarjeta 75.94 % de los viajes, efectivo 19.59 %, sin dato 3.43 %, disputa 0.57 % y sin cargo 0.48 %. En efectivo, el **99.98 %** de los viajes tiene propina = 0: no es que no se dé propina, sino que **no se registra**. Por eso todo el análisis de propinas y los modelos usan solo pagos con tarjeta. Con tarjeta, solo el 3.97 % deja propina 0 y el promedio es 3.41 USD.
+- **H4 — La tarifa estándar es el 91.3 % de los viajes.** Le siguen JFK con tarifa plana (3.76 %), negociada (0.78 %), código desconocido 99 (0.33 %), Newark (0.27 %) y Nassau/Westchester (0.13 %). Los viajes al aeropuerto son pocos, pero tienen la tarifa y la propina más altas (consulta 13.7, captura 50: propina promedio JFK — USD vs. resto — USD).
+
+### Económicas
+- **H5 — Los viajes típicos son cortos y baratos, con colas extremas que son errores.** Mediana de tarifa 10 USD, propina 2.16 USD, distancia 1.9 mi y duración 12.2 min. El percentil 99 es 60 USD y 20 mi, pero los máximos (401,092 USD, 389,678 mi, 10 millones de minutos) son errores de captura; por eso se aplicaron los filtros de la sección 1.
+- **H7 — La propina con tarjeta se concentra en los botones sugeridos** (consulta 14.2, captura 52). — % de los viajes queda entre 20–25 % de la tarifa y — % entre 25–35 %. Esto explica por qué el modelo de clasificación `high_tip` tiene poco poder predictivo (sección 9.3): el porcentaje depende sobre todo del botón que elige el pasajero, no del viaje.
+- **H8 — El monto de la propina sigue a la tarifa, pero el porcentaje no** (consultas 14.3–14.4, capturas 53–54). Correlación propina–tarifa = —, propina–distancia = —, y % de propina–tarifa = —. Por eso `fare_amount`, `trip_distance` y `trip_duration_min` son las features más fuertes del regresor.
+
+### Geográficas
+- **H9 — La demanda se concentra en Manhattan** (consultas 13.4–13.5, capturas 48–49). Las 15 zonas de origen con más viajes acumulan — % del total. El — % de los viajes empieza y termina en Manhattan. La ruta más frecuente es —.
+- **H10 — Zonas de mayor propina** (consulta 14.7, captura 56). Las zonas con más % de propina son —; los aeropuertos destacan en monto (USD) por la distancia, no en porcentaje.
 
 ## 11. Informe visual
-Enlace a Looker Studio: *(pendiente)*
+**Enlace al tablero de Looker Studio:** *(pegar aquí el enlace público al crear el tablero)*
+
+Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](informe_visual/GUIA_TABLERO.md). Resumen:
+
+| Página | Visualizaciones | Fuentes |
+|---|---|---|
+| 1. Exploración temporal y de pago | V1 serie diaria de viajes y propina · V2 mapa de calor hora × día · V3 tipo de pago por mes | `dash_diario`, `dash_hora_dia`, `dash_pago_mensual` |
+| 2. Zonas, tarifas y propinas | V4 mapa coroplético por zona · V5 top zonas · V6 propina vs. distancia | `dash_zonas`, `dash_distancia_propina` |
+| 3. Modelos y predicciones | P1 real vs. predicho (nov) · P2 **Rolling Forecast** W1/W2 boosted vs. ARIMA · P3 error por ventana · P4 comparación de modelos · P5 curva ROC · P6 viajes hipotéticos | `pred_diaria_nov`, `rolling_forecast_*`, `eval_*`, `pred_viajes_hipoteticos` |
 
 ## 12. Índice de evidencias (`evidencias/capturas/`)
 
