@@ -279,7 +279,7 @@ Los hallazgos **H1–H5** ya están respaldados por las salidas de Estuardo ([`0
 - **H10 — Zonas de mayor propina** (consulta 14.7, captura 56). Las zonas con más % de propina son —; los aeropuertos destacan en monto (USD) por la distancia, no en porcentaje.
 
 ## 11. Informe visual
-**Enlace al tablero de Looker Studio:** *(pegar aquí el enlace público al crear el tablero)*
+**Enlace al tablero de Looker Studio:** https://datastudio.google.com/reporting/88825b74-66a1-4d74-90cc-d75f74511091
 
 Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](informe_visual/GUIA_TABLERO.md). Resumen:
 
@@ -320,7 +320,7 @@ Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pen
 |---|---|---|
 | Requisito: BigQuery + NYC Taxi 2022 con ≥ 1 M registros | Sección 1 (36,256,539 registros), captura 02 | ✅ |
 | Requisito: optimización y clustering obligatorio | Sección 3, `03`, capturas 07–10 | ✅ |
-| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ⏳ falta el enlace y las capturas del tablero |
+| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ✅ enlace · ⏳ capturas 58–60 del tablero |
 | 1.1 Conexión y comprensión del dataset (8) | Sección 1, `01`, `02` | ✅ |
 | 1.2 Consultas SQL avanzadas y transformaciones (8) | `05`, `12`–`15` | ✅ scripts · ⏳ capturas 40–57 |
 | 1.3 Optimización con particiones y clustering (12) | Sección 3, `03`, `04` | ✅ |
@@ -336,5 +336,5 @@ Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pen
 **Pendientes antes de entregar** (requieren acceso al proyecto GCP):
 1. Ejecutar `08`–`15` y tomar las capturas 26–57.
 2. Reemplazar los `—` de las secciones 9 y 10 con los valores obtenidos y confirmar el modelo elegido (9.5).
-3. Crear el tablero de Looker Studio, pegar el enlace en la sección 11 y guardar las capturas 58–60.
+3. Guardar las capturas 58–60 del tablero de Looker Studio (enlace ya en la sección 11).
 4. Completar el carné de Estuardo en la tabla de integrantes.
