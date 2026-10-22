@@ -68,6 +68,12 @@ Fuente: [`evidencias/salidas/02_calidad_datos.txt`](evidencias/salidas/02_calida
 
 **Resultado de la limpieza:** de 36,255,983 filas de 2022 quedan **26,095,456 (71.98 %)** en `ml_trips_clean`: 21,084,528 en `train`, 2,653,483 en `eval` y 2,357,445 en `new_records`.
 
+**Evidencia — conteo de registros y nulos:**
+
+![Conteo de registros](evidencias/capturas/02_conteo_registros.png)
+
+![Nulos por columna](evidencias/capturas/03_calidad_nulos.png)
+
 ## 2. Transformaciones realizadas
 
 1. `trips_base`: copia de la tabla pública restringida a pickup en 2022 (sin optimizar).
@@ -81,6 +87,12 @@ Fuente: [`evidencias/salidas/02_calidad_datos.txt`](evidencias/salidas/02_calida
 |---|---|---|
 | Partición | `PARTITION BY DATE(pickup_datetime)` | Las consultas temporales filtran por día/mes; solo se leen las particiones necesarias. |
 | Clustering | `CLUSTER BY pickup_location_id, dropoff_location_id` | Los filtros y agrupaciones por zona son frecuentes; ordena físicamente los datos y omite bloques. |
+
+**Evidencia — particiones y clustering de `trips_opt`:**
+
+![Particiones](evidencias/capturas/08_particiones.png)
+
+![Clustering](evidencias/capturas/09_clustering.png)
 
 ### Comparación de desempeño (estándar vs. optimizada)
 Evidencia: capturas [11](evidencias/capturas/11_comparacion_1A_publica.png) a [17](evidencias/capturas/17_resumen_comparacion.png) (consola de BigQuery, caché desactivada, `cache_hit = false`).
@@ -106,6 +118,10 @@ Evidencia: capturas [11](evidencias/capturas/11_comparacion_1A_publica.png) a [1
 → Reducción de solo **9.7 %** en bytes, con más tiempo de cómputo (slot-ms) que la tabla sin optimizar.
 
 **Conclusión:** la **partición por fecha** es la técnica de mayor impacto: al filtrar un mes solo se leen ~30 de las 335 particiones. El **clustering aporta poco por sí solo** en este dataset: cada partición diaria es pequeña (~20 MB) y BigQuery solo omite bloques dentro de cada partición; es probable que, al ser una zona muy frecuente, casi todos los bloques contengan la zona buscada. Su beneficio es mayor combinado con el filtro de fecha. Los tiempos (290–440 ms) son demasiado cortos y variables para comparar; la métrica relevante es bytes procesados, que es lo que se factura.
+
+**Evidencia — resumen de bytes procesados (caché desactivada):**
+
+![Resumen comparación estándar vs optimizada](evidencias/capturas/17_resumen_comparacion.png)
 
 ## 4. Planteamiento del problema de ML
 
@@ -157,6 +173,12 @@ Predecir la **propina** de un viaje pagado con tarjeta:
 5. `pickup_month` se excluye: con split temporal, octubre no existe en `train` y el mes no generaliza.
 6. Comprobación: `07_evidencias_split_entrenamiento.sql` verifica que los rangos de fechas no se solapan y qué features usó cada modelo.
 
+**Evidencia — split temporal sin solapamiento:**
+
+![Split temporal](evidencias/capturas/19_split_temporal.png)
+
+![Split sin solapamiento](evidencias/capturas/20_split_sin_solapamiento.png)
+
 ## 8. Modelos entrenados en BigQuery ML
 Scripts: [`sql/06_modelos_bqml.sql`](sql/06_modelos_bqml.sql). Evidencias: capturas [22](evidencias/capturas/22a_detalles_linear.png) a [25a](evidencias/capturas/25a_training_info_boosted.png)/[25b](evidencias/capturas/25b_training_info_logistic.png)/[25c](evidencias/capturas/25c_training_info_linear.png).
 
@@ -167,6 +189,14 @@ Scripts: [`sql/06_modelos_bqml.sql`](sql/06_modelos_bqml.sql). Evidencias: captu
 | M3 `model_tip_boosted` | `BOOSTED_TREE_REGRESSOR` (`max_tree_depth = 6`, `learn_rate = 0.1`, `subsample = 0.8`) | `SEQ` + `data_split_eval_fraction = 0.2`, muestra 25 % | 20 | 1.584 | 1.682 |
 
 *Loss = error cuadrático medio en M1 y M3; log-loss en M2. Los valores no son comparables entre algoritmos distintos; la comparación con RMSE, ROC-AUC y matriz de confusión se hace en la sección 9.*
+
+**Evidencia — entrenamiento de los modelos:**
+
+![Entrenamiento M1 lineal](evidencias/capturas/22b_entrenamiento_linear.png)
+
+![Entrenamiento M2 logístico](evidencias/capturas/23b_entrenamiento_logistic.png)
+
+![Entrenamiento M3 boosted](evidencias/capturas/24b_entrenamiento_boosted.png)
 
 ## 9. Evaluación y comparación de modelos *(Pablo)*
 Scripts: [`08_evaluacion_modelos.sql`](sql/08_evaluacion_modelos.sql), [`09_ajuste_hiperparametros.sql`](sql/09_ajuste_hiperparametros.sql), [`10_predicciones.sql`](sql/10_predicciones.sql), [`11_rolling_forecast.sql`](sql/11_rolling_forecast.sql).
@@ -214,6 +244,10 @@ Cada modelo tiene una variante `_v2` que solo cambia hiperparámetros (mismas fe
 | M2 logística | `l2_reg = 0.1`, `auto_class_weights = TRUE` | `l2_reg = 1.0`, sin pesos de clase | Sin pesos sube la *accuracy*, pero baja el *recall* de la clase minoritaria. | No aplica RMSE (P4 no la grafica); la base tiene ROC-AUC ≈ 0.56, así que ningún ajuste de regularización puede compensar que las variables casi no explican el % de propina. |
 | M3 boosted | `depth = 6`, `learn_rate = 0.1`, ≤ 50 iter. | `depth = 10`, `learn_rate = 0.05`, ≤ 100 iter., `l2_reg = 1`, `colsample_bytree = 0.8` | Árboles más profundos captan más interacciones; la tasa menor y la regularización evitan el sobreajuste. | base ≈ 1.66 / v2 ≈ 1.60: **mejora ≈ 4 %**, pero sigue sin superar al lineal base. |
 
+**Evidencia — ejecución del ajuste de hiperparámetros (`09`):**
+
+![Ejecución 09](evidencias/capturas/ejec_09_hiperparametros.png)
+
 ### 9.5 Modelo elegido y justificación
 - **Regresión: se elige M1 `LINEAR_REG` base.** (1) Tiene el menor RMSE en octubre (≈ 1.57 USD), el conjunto de selección. (2) Es el más simple: entrena con todos los datos en una iteración y cada coeficiente se interpreta directamente en USD. (3) Los árboles, incluso ajustados, no lo superan: la propina con tarjeta es casi proporcional a la tarifa, una relación lineal que no necesita interacciones. Las predicciones de M1 y M3 sobre viajes nuevos casi coinciden (sección 9.6), lo que confirma esa estructura.
 - **Clasificación:** M2 se mantiene como modelo complementario. Con ROC-AUC ≈ 0.56, su valor está en el hallazgo: **el porcentaje de propina es poco predecible** con estas variables, a diferencia del monto en USD, que sí sigue a la tarifa.
@@ -252,6 +286,12 @@ En cada ventana se comparan **dos predicciones** de la propina total diaria:
 
 **Conclusión:** para estimar lo que pasó con los viajes de un día, el modelo por viaje es más robusto. ARIMA sirve para planificar *antes* de que ocurran los viajes, pero falla en eventos que no vio en su historial.
 
+**Evidencia — ejecución del rolling forecast (`11`) y gráficos de modelos del tablero:**
+
+![Ejecución 11](evidencias/capturas/ejec_11_rolling_forecast.png)
+
+![Tablero: modelos y predicciones](evidencias/capturas/60_tablero_predicciones.png)
+
 ## 10. Hallazgos relevantes *(Diego)*
 Scripts exploratorios comentados: [`12_eda_temporal.sql`](sql/12_eda_temporal.sql) (hora, día, mes, mapa de calor, días extremos), [`13_eda_pago_zonas.sql`](sql/13_eda_pago_zonas.sql) (tipo de pago, `rate_code`, zonas, rutas, aeropuertos), [`14_eda_tarifas_propinas.sql`](sql/14_eda_tarifas_propinas.sql) (distribuciones, correlaciones, propina por distancia/hora/zona) y [`15_tablas_dashboard.sql`](sql/15_tablas_dashboard.sql) (tablas agregadas para el tablero). Usan agregaciones (`COUNT`, `AVG`, `SUM`, `CORR`, `APPROX_QUANTILES`), funciones temporales (`EXTRACT`, `DATE_TRUNC`, `FORMAT_TIMESTAMP`, `TIMESTAMP_DIFF`), funciones de ventana (`LAG`, `RANK`, media móvil), `PIVOT`, `QUALIFY`, `CASE` y `JOIN` con el catálogo de zonas `taxi_zone_geom`. Todas consultan `trips_opt` o `ml_trips_clean` filtrando por fecha para aprovechar la partición.
 
@@ -275,6 +315,14 @@ Los hallazgos **H1–H5** se basan en las salidas de [`01_exploracion_dataset.tx
 - **H9 — La demanda se concentra en Manhattan y JFK** (mapa V4 y barras V5, [captura 59](evidencias/capturas/59_tablero_geografico.png)). La zona con más viajes es **Upper East Side South (237)**, con **1,675,569** viajes. Le siguen JFK Airport (132), Upper East Side North (236), Midtown Center (161), Penn Station/Madison Sq West (186), Midtown East (162), Lincoln Square East (142), Murray Hill (170) y Times Sq/Theatre District (230), con ≈ 1.1–1.7 millones cada una. Esas 9 zonas suman ≈ un tercio de todos los viajes (≈ 12 de ≈ 35 millones). Salvo JFK, todas están en Manhattan, y el mapa muestra que el resto de los boroughs casi no genera viajes de taxi amarillo.
 - **H10 — Los aeropuertos son pocos viajes, pero valen más.** JFK es la 2.ª zona de origen con más viajes y la de mayor propina en USD: ≈ 11.5 USD predichos hacia Midtown frente a ≈ 2.6 USD dentro de Manhattan. En porcentaje no destaca (≈ 22 %, igual que un viaje urbano): su ventaja viene de la distancia y la tarifa, no de pasajeros más generosos.
 
+**Evidencia — ejecución de los scripts exploratorios (`12`–`14`):**
+
+![Ejecución 12](evidencias/capturas/ejec_12_eda_temporal.png)
+
+![Ejecución 13](evidencias/capturas/ejec_13_eda_pago_zonas.png)
+
+![Ejecución 14](evidencias/capturas/ejec_14_eda_tarifas_propinas.png)
+
 ## 11. Informe visual
 **Enlace al tablero de Looker Studio:** https://datastudio.google.com/reporting/88825b74-66a1-4d74-90cc-d75f74511091
 
@@ -285,6 +333,24 @@ Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](inform
 | 1. Exploración temporal y de pago | V1 serie diaria de viajes y propina · V2 mapa de calor hora × día · V3 tipo de pago por mes | `dash_diario`, `dash_hora_dia`, `dash_pago_mensual` |
 | 2. Zonas, tarifas y propinas | V4 mapa coroplético por zona · V5 top zonas · V6 propina vs. distancia | `dash_zonas`, `dash_distancia_propina` |
 | 3. Modelos y predicciones | P1 real vs. predicho (nov) · P2 **Rolling Forecast** W1/W2 boosted vs. ARIMA · P3 error por ventana · P4 comparación de modelos · P5 curva ROC · P6 viajes hipotéticos | `pred_diaria_nov`, `rolling_forecast_*`, `eval_*`, `pred_viajes_hipoteticos` |
+
+### Capturas del tablero
+
+**Página 1 — Exploración temporal y pagos**
+
+![Tablero página 1](evidencias/capturas/58_tablero_exploratorio.png)
+
+**Página 2 — Zonas, tarifas y propinas**
+
+![Tablero página 2](evidencias/capturas/59_tablero_geografico.png)
+
+**Página 3 — Modelos y predicciones**
+
+![Tablero página 3](evidencias/capturas/60_tablero_predicciones.png)
+
+**Fuentes de datos conectadas a BigQuery**
+
+![Fuentes dash_* en Looker Studio](evidencias/capturas/ejec_looker_fuentes_dash.png)
 
 ## 12. Índice de evidencias (`evidencias/capturas/`)
 
