@@ -22,7 +22,7 @@ Tablero del Proyecto 2 (SS22S2026, Grupo 8). Todas las fuentes son tablas **agre
 
 | # | Gráfico | Fuente | Dimensión | Métrica(s) | Qué muestra |
 |---|---|---|---|---|---|
-| V4 | Mapa de Google (área rellena) | `dash_zonas` | `zone_geom` (geometría), `zona` | color: `viajes` (o `propina_pct_tarjeta`) | Concentración de demanda en Manhattan y aeropuertos |
+| V4 | Mapa de Google (área rellena) | `dash_zonas` | Ubicación `lat_lon` (tipo Geo → Latitud, longitud), campo geoespacial `zone_geom`, descripción `zona` | color: `viajes` (o `propina_pct_tarjeta`) | Concentración de demanda en Manhattan y aeropuertos |
 | V5 | Barras | `dash_zonas` | `zona` (top 15 por `viajes`) | `viajes`, `propina_prom_tarjeta` | Zonas con más viajes |
 | V6 | Combinado (barras + línea) | `dash_distancia_propina` | `rango_distancia`, filtro `is_airport` | `propina_prom` (barras), `propina_pct_prom` (línea) | La propina en USD sube con la distancia mientras el % baja |
 | — | Control desplegable | `dash_zonas` | `borough` | — | Filtra V4 y V5 |
