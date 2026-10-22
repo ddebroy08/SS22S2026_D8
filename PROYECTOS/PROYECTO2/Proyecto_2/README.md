@@ -302,6 +302,7 @@ Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](inform
 | Predicciones y Rolling Forecast *(pendiente, `10`/`11`)* | 34 tabla de predicciones · 35 resumen predicciones · 36 viajes hipotéticos · 37 rolling diario · 38 rolling resumen |
 | Análisis exploratorio *(pendiente, `12`–`15`)* | 40 mensual · 41 por hora · 42 día de semana · 43 heatmap · 44 días extremos · 45 tipo de pago · 46 pago mensual · 47 rate code · 48 top zonas · 49 top rutas · 50 aeropuertos · 51 descriptivas · 52 % propina · 53 distancia-tarifa · 54 correlaciones · 55 propina por hora · 56 zonas propina · 57 tablas dashboard |
 | Tablero *(pendiente)* | 58 página exploratoria · 59 página geográfica · 60 página de predicciones |
+| Ejecución de los scripts en BigQuery | [09 hiperparámetros](evidencias/capturas/ejec_09_hiperparametros.png) · [09 código 9.4–9.5](evidencias/capturas/ejec_09_hiperparametros_codigo.png) · [11 rolling forecast](evidencias/capturas/ejec_11_rolling_forecast.png) · [12 EDA temporal](evidencias/capturas/ejec_12_eda_temporal.png) · [13 EDA pago y zonas](evidencias/capturas/ejec_13_eda_pago_zonas.png) · [14 EDA tarifas y propinas](evidencias/capturas/ejec_14_eda_tarifas_propinas.png) · [Looker: fuentes `dash_*`](evidencias/capturas/ejec_looker_fuentes_dash.png) |
 
 Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pendientes se guardan en `evidencias/capturas/` con el número indicado en el comentario de cada consulta.
 
