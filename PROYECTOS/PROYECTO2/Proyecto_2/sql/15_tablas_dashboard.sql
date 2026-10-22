@@ -111,7 +111,11 @@ SELECT
   p.*,
   z.zone_name AS zona,
   z.borough,
-  z.zone_geom
+  z.zone_geom,
+  -- centroide "lat,lon": Looker Studio lo reconoce como tipo Geo > Latitud, longitud
+  -- y es el campo que exige "Ubicación" en el mapa de Google
+  CONCAT(CAST(ST_Y(ST_CENTROID(z.zone_geom)) AS STRING), ',',
+         CAST(ST_X(ST_CENTROID(z.zone_geom)) AS STRING)) AS lat_lon
 FROM por_zona p
 JOIN `bigquery-public-data.new_york_taxi_trips.taxi_zone_geom` z
   ON z.zone_id = p.zona_id;
