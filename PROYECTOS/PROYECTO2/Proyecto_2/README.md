@@ -171,7 +171,7 @@ Scripts: [`sql/06_modelos_bqml.sql`](sql/06_modelos_bqml.sql). Evidencias: captu
 ## 9. Evaluación y comparación de modelos *(Pablo)*
 Scripts: [`08_evaluacion_modelos.sql`](sql/08_evaluacion_modelos.sql), [`09_ajuste_hiperparametros.sql`](sql/09_ajuste_hiperparametros.sql), [`10_predicciones.sql`](sql/10_predicciones.sql), [`11_rolling_forecast.sql`](sql/11_rolling_forecast.sql).
 
-> **Pendiente de ejecución:** los scripts 08–11 están listos, pero los valores marcados con `—` se llenan después de correrlos en BigQuery (orden `08 → 09 → 10 → 11`). Cada consulta indica el nombre de la captura que le corresponde (`26_…` a `38_…`).
+> Los scripts 08–11 se ejecutaron en BigQuery (capturas [`ejec_09`](evidencias/capturas/ejec_09_hiperparametros.png) y [`ejec_11`](evidencias/capturas/ejec_11_rolling_forecast.png)). Los resultados se presentan con los gráficos de la página 3 del tablero ([captura 60](evidencias/capturas/60_tablero_predicciones.png)).
 
 ### 9.1 Explicación de los modelos
 
@@ -188,51 +188,50 @@ Scripts: [`08_evaluacion_modelos.sql`](sql/08_evaluacion_modelos.sql), [`09_ajus
 
 ### 9.3 Métricas
 
-**Lo que ya mostró el entrenamiento** (`ML.TRAINING_INFO`, sección 8): la pérdida de evaluación de M1 es MSE = 2.474 → **RMSE ≈ 1.57 USD**, y la de M3 es MSE = 1.682 → **RMSE ≈ 1.30 USD**, cerca de 17 % menos error. En M2 la log-loss de evaluación (0.690) es casi igual a ln 2 ≈ 0.693, que es lo que obtiene un clasificador que responde al azar con clases balanceadas. Eso anticipa un ROC-AUC bajo: el porcentaje de propina con tarjeta depende sobre todo de los botones sugeridos en la pantalla del taxi (20/25/30 %), no de la ruta ni de la hora.
+**Pérdida durante el entrenamiento** (`ML.TRAINING_INFO`, sección 8): M1 tuvo MSE de evaluación 2.474 (RMSE ≈ 1.57 USD) sobre octubre y M3 tuvo 1.682 (RMSE ≈ 1.30 USD) sobre su propio 20 % de evaluación (`SEQ`, septiembre–octubre, muestra del 25 %). **No son comparables** porque se miden sobre conjuntos distintos; por eso la comparación justa se hizo con `ML.EVALUATE` de todos los modelos sobre **octubre completo**.
 
-**Regresión — `tip_amount`** (tabla `eval_regresion`, captura 26):
+**Regresión — RMSE sobre octubre** (tabla `eval_hiperparametros`, gráfico P4 del tablero, [captura 60](evidencias/capturas/60_tablero_predicciones.png)):
 
-| Modelo | Conjunto | RMSE | MAE | R² |
-|---|---|---:|---:|---:|
-| Baseline (media de train) | oct | — | — | ≈ 0 |
-| M1 `LINEAR_REG` | oct | — | — | — |
-| M3 `BOOSTED_TREE` | oct | — | — | — |
-| M1 `LINEAR_REG` | nov | — | — | — |
-| M3 `BOOSTED_TREE` | nov | — | — | — |
+| Modelo | RMSE oct (USD) |
+|---|---:|
+| **M1 `LINEAR_REG` base** | **≈ 1.57** |
+| M3 `BOOSTED_TREE` v2 | ≈ 1.60 |
+| M1 `LINEAR_REG` v2 | ≈ 1.61 |
+| M3 `BOOSTED_TREE` base | ≈ 1.66 |
 
-**Clasificación — `high_tip`** (tablas `eval_clasificacion` y `eval_roc_logistic`, capturas 27–29):
+Los cuatro quedan en un rango estrecho (≈ 1.57–1.66 USD, diferencia < 6 %), y el **modelo lineal base tiene el menor error**. El boosted base, que parecía mejor durante el entrenamiento, es el peor en octubre: su evaluación interna fue optimista porque se calculó sobre otro periodo y con solo el 25 % de los datos.
 
-| Modelo | Conjunto | ROC-AUC | Precision | Recall | F1 | Accuracy | Log-loss |
-|---|---|---:|---:|---:|---:|---:|---:|
-| M2 `LOGISTIC_REG` | oct | — | — | — | — | — | — |
-| M2 `LOGISTIC_REG` | nov | — | — | — | — | — | — |
+**Clasificación — curva ROC de M2** (tabla `eval_roc_logistic`, gráfico P5): los puntos (tasa de falsos positivos, recall) por umbral son ≈ (0.59, 0.71), (0.87, 0.92) y (0.91, 0.95), además de (0, 0) y (1, 1). El área bajo esa curva, calculada por trapecios, da **ROC-AUC ≈ 0.56**, apenas por encima de un clasificador al azar (0.5). Coincide con la log-loss de entrenamiento (0.690 ≈ ln 2 = 0.693): para detectar el 71 % de las propinas altas hay que aceptar un 59 % de falsos positivos.
 
-- **Matriz de confusión** con umbral 0.5 y con el umbral de mejor F1, obtenido de `ML.ROC_CURVE` (consulta 8.5). Bajar el umbral sube el *recall* (detecta más propinas altas) a costa de la precisión.
-- **Importancia de variables** (`ML.GLOBAL_EXPLAIN`, captura 30): se espera que `fare_amount`, `trip_distance` y `trip_duration_min` dominen la regresión, porque la propina con tarjeta se calcula como porcentaje de la tarifa.
+*Los valores marcados con ≈ se leyeron de los gráficos del tablero; las cifras exactas están en las tablas `eval_regresion`, `eval_clasificacion`, `eval_hiperparametros` y `eval_roc_logistic` del dataset `nyc_taxi_p2`.*
 
 ### 9.4 Ajuste de hiperparámetros
-Cada modelo tiene una variante `_v2` que solo cambia hiperparámetros (mismas features, split y datos). La comparación sobre octubre queda en la tabla `eval_hiperparametros` (capturas 31–33).
+Cada modelo tiene una variante `_v2` que solo cambia hiperparámetros (mismas features, split y datos). La comparación sobre octubre está en la tabla `eval_hiperparametros` (gráfico P4).
 
-| Modelo | Base | Variante v2 | Hipótesis | Resultado (oct) |
+| Modelo | Base | Variante v2 | Hipótesis | Resultado (RMSE oct) |
 |---|---|---|---|---|
-| M1 lineal | `l2_reg = 0.1` | `l1_reg = 0.5`, `l2_reg = 1.0` | L1 elimina coeficientes de zonas poco frecuentes (~260 categorías) y reduce el sobreajuste. | RMSE base — / v2 — |
-| M2 logística | `l2_reg = 0.1`, `auto_class_weights = TRUE` | `l2_reg = 1.0`, sin pesos de clase | Sin pesos sube la *accuracy*, pero baja el *recall* de la clase minoritaria. ROC-AUC no depende del umbral, así que es la métrica justa para comparar. | ROC-AUC base — / v2 — |
-| M3 boosted | `depth = 6`, `learn_rate = 0.1`, ≤ 50 iter. | `depth = 10`, `learn_rate = 0.05`, ≤ 100 iter., `l2_reg = 1`, `colsample_bytree = 0.8` | Árboles más profundos captan más interacciones; la tasa menor y la regularización evitan el sobreajuste. | RMSE base — / v2 — |
+| M1 lineal | `l2_reg = 0.1` | `l1_reg = 0.5`, `l2_reg = 1.0` | L1 elimina coeficientes de zonas poco frecuentes (~260 categorías) y reduce el sobreajuste. | base ≈ 1.57 / v2 ≈ 1.61: más regularización **empeora** un poco; el modelo base no estaba sobreajustado. |
+| M2 logística | `l2_reg = 0.1`, `auto_class_weights = TRUE` | `l2_reg = 1.0`, sin pesos de clase | Sin pesos sube la *accuracy*, pero baja el *recall* de la clase minoritaria. | No aplica RMSE (P4 no la grafica); la base tiene ROC-AUC ≈ 0.56, así que ningún ajuste de regularización puede compensar que las variables casi no explican el % de propina. |
+| M3 boosted | `depth = 6`, `learn_rate = 0.1`, ≤ 50 iter. | `depth = 10`, `learn_rate = 0.05`, ≤ 100 iter., `l2_reg = 1`, `colsample_bytree = 0.8` | Árboles más profundos captan más interacciones; la tasa menor y la regularización evitan el sobreajuste. | base ≈ 1.66 / v2 ≈ 1.60: **mejora ≈ 4 %**, pero sigue sin superar al lineal base. |
 
 ### 9.5 Modelo elegido y justificación
-- **Regresión:** se elige **M3 (`BOOSTED_TREE_REGRESSOR`)**, o su variante v2 si en la tabla `eval_hiperparametros` tiene menor RMSE en octubre. Motivos: (1) menor error que el modelo lineal desde el entrenamiento (RMSE ≈ 1.30 vs. 1.57 USD); (2) capta no linealidades, como la propina casi fija de los viajes de tarifa plana al aeropuerto (`rate_code = 2`); (3) su error en noviembre debe ser parecido al de octubre, lo que indica que no está sobreajustado. Lo que se sacrifica es interpretabilidad, que se compensa con `ML.GLOBAL_EXPLAIN`.
-- **Clasificación:** M2 se mantiene como modelo complementario. Con un ROC-AUC bajo, su valor está en mostrar que **el porcentaje de propina es poco predecible** con estas variables, a diferencia del monto en USD, que sí depende de la tarifa.
+- **Regresión: se elige M1 `LINEAR_REG` base.** (1) Tiene el menor RMSE en octubre (≈ 1.57 USD), el conjunto de selección. (2) Es el más simple: entrena con todos los datos en una iteración y cada coeficiente se interpreta directamente en USD. (3) Los árboles, incluso ajustados, no lo superan: la propina con tarjeta es casi proporcional a la tarifa, una relación lineal que no necesita interacciones. Las predicciones de M1 y M3 sobre viajes nuevos casi coinciden (sección 9.6), lo que confirma esa estructura.
+- **Clasificación:** M2 se mantiene como modelo complementario. Con ROC-AUC ≈ 0.56, su valor está en el hallazgo: **el porcentaje de propina es poco predecible** con estas variables, a diferencia del monto en USD, que sí sigue a la tarifa.
 
 ### 9.6 Predicciones sobre registros nuevos (`ML.PREDICT`)
-- **`pred_nuevos_registros`** (2,357,445 viajes de noviembre, particionada por fecha): por cada viaje guarda la propina real, `pred_tip_linear`, `pred_tip_boosted`, `pred_high_tip`, `prob_high_tip` y el error de cada regresor (captura 34). Las predicciones negativas se recortan a 0, porque una propina no puede ser negativa.
-- **`pred_viajes_hipoteticos`:** 5 viajes escritos a mano (JFK → Midtown en hora pico, viaje corto en Midtown, madrugada de sábado, etc.) para mostrar el uso del modelo con datos que no existen en el dataset (captura 36).
-- **`pred_diaria_nov`:** agregado diario real vs. predicho. Es la fuente del gráfico de predicciones del tablero.
+- **`pred_nuevos_registros`** (2,357,445 viajes de noviembre, particionada por fecha): por cada viaje guarda la propina real, `pred_tip_linear`, `pred_tip_boosted`, `pred_high_tip`, `prob_high_tip` y el error de cada regresor. Las predicciones negativas se recortan a 0.
+- **`pred_diaria_nov`:** agregado diario real vs. predicho (gráfico P1). En **Thanksgiving (24-nov)** la propina total real fue ≈ 146 mil USD; M1 predijo ≈ 144.5 mil (error ≈ −1 %) y M3 ≈ 138 mil (≈ −5.5 %).
+- **`pred_viajes_hipoteticos`:** 5 viajes escritos a mano, que no existen en el dataset (gráfico P6):
 
-| Métrica sobre noviembre | M1 lineal | M3 boosted |
-|---|---:|---:|
-| RMSE (USD) | — | — |
-| MAE (USD) | — | — |
-| % de viajes con error ≤ 1 USD | — | — |
+| Escenario | Tarifa (USD) | Propina M1 | Propina M3 | % propina (M1) | Prob. propina alta (M2) |
+|---|---:|---:|---:|---:|---:|
+| JFK → Midtown, viernes 18 h | 52.0 | 11.48 | 11.16 | 22 % | 0.69 |
+| LaGuardia → East Village, domingo 15 h | 31.0 | 7.57 | 7.54 | 24 % | 0.77 |
+| East Village → Times Sq, sábado 1 h | 12.5 | 2.63 | 2.66 | 21 % | 0.80 |
+| Midtown → Upper East Side, martes 9 h | 11.5 | 2.57 | 2.59 | 22 % | 0.82 |
+| Viaje corto en Midtown, miércoles 13 h | 5.5 | 2.07 | 1.69 | 38 % | 0.83 |
+
+El monto predicho crece con la tarifa y los dos regresores difieren en ≤ 0.4 USD. En cambio, M2 da probabilidades parecidas (0.69–0.83) a viajes muy distintos: no logra separar quién deja propina alta.
 
 ### 9.7 Comparación de 2 predicciones — *Rolling Forecast*
 Se valida con **origen móvil (ventana expansiva)**: en cada origen se reentrena solo con el pasado y se predice el mes siguiente.
@@ -243,40 +242,38 @@ Se valida con **origen móvil (ventana expansiva)**: en cada origen se reentrena
 | **W2** | ene–oct 2022 | nov 2022 | `rf_boosted_w2`, `rf_arima_w2` |
 
 En cada ventana se comparan **dos predicciones** de la propina total diaria:
-1. **Boosted por viaje agregado:** predice la propina de cada viaje con las features y suma por día.
-2. **ARIMA_PLUS:** pronostica directamente la serie diaria solo con su historial (tendencia, estacionalidad semanal y feriados de EE. UU., como Thanksgiving el 24-nov). Incluye un intervalo de confianza del 90 %.
+1. **Boosted por viaje agregado:** predice la propina de cada viaje con sus features y suma por día.
+2. **ARIMA_PLUS:** pronostica la serie diaria solo con su historial (tendencia, estacionalidad semanal y feriados de EE. UU.), con un intervalo de confianza del 90 %.
 
-Resultados en `rolling_forecast_diario` y `rolling_forecast_resumen` (capturas 37–38):
+**Resultados** (tablas `rolling_forecast_diario` y `rolling_forecast_resumen`, gráficos P2 y P3):
+- En días normales, las dos predicciones siguen el ciclo semanal de la serie real (≈ 200–300 mil USD de propina diaria).
+- **Thanksgiving (24-nov, ventana W2)** marca la diferencia: la propina real fue ≈ 148 mil USD. El boosted predijo ≈ 131 mil (≈ −11 %), mientras que ARIMA predijo ≈ 331 mil, con un intervalo del 90 % de ≈ 255–403 mil que **no contiene el valor real**. ARIMA no tenía ningún Thanksgiving en su historial de entrenamiento (ene–oct) para aprender ese efecto. El boosted sí reacciona, porque predice a partir de los viajes que realmente ocurrieron ese día.
+- En la tabla P3, el MAPE de ARIMA es mayor en W2 (noviembre) que en W1 (octubre), por el efecto del feriado. El boosted mantiene un error parecido en ambas ventanas: reentrenar con un mes más de datos no lo degrada.
 
-| Ventana | Propina real del mes | Pred. boosted | Pred. ARIMA | MAPE boosted | MAPE ARIMA | % días dentro del IC 90 % |
-|---|---:|---:|---:|---:|---:|---:|
-| W1 (oct) | — | — | — | — | — | — |
-| W2 (nov) | — | — | — | — | — | — |
-
-**Cómo leerlo:** se espera que el boosted tenga menor MAPE diario, porque conoce las tarifas reales de cada viaje del día; ARIMA no las conoce y solo extrapola la serie. ARIMA, en cambio, sirve para planificar *antes* de que ocurran los viajes. Si el error de W2 es parecido o menor al de W1, reentrenar con un mes más de datos mantiene o mejora el desempeño.
+**Conclusión:** para estimar lo que pasó con los viajes de un día, el modelo por viaje es más robusto. ARIMA sirve para planificar *antes* de que ocurran los viajes, pero falla en eventos que no vio en su historial.
 
 ## 10. Hallazgos relevantes *(Diego)*
 Scripts exploratorios comentados: [`12_eda_temporal.sql`](sql/12_eda_temporal.sql) (hora, día, mes, mapa de calor, días extremos), [`13_eda_pago_zonas.sql`](sql/13_eda_pago_zonas.sql) (tipo de pago, `rate_code`, zonas, rutas, aeropuertos), [`14_eda_tarifas_propinas.sql`](sql/14_eda_tarifas_propinas.sql) (distribuciones, correlaciones, propina por distancia/hora/zona) y [`15_tablas_dashboard.sql`](sql/15_tablas_dashboard.sql) (tablas agregadas para el tablero). Usan agregaciones (`COUNT`, `AVG`, `SUM`, `CORR`, `APPROX_QUANTILES`), funciones temporales (`EXTRACT`, `DATE_TRUNC`, `FORMAT_TIMESTAMP`, `TIMESTAMP_DIFF`), funciones de ventana (`LAG`, `RANK`, media móvil), `PIVOT`, `QUALIFY`, `CASE` y `JOIN` con el catálogo de zonas `taxi_zone_geom`. Todas consultan `trips_opt` o `ml_trips_clean` filtrando por fecha para aprovechar la partición.
 
-Los hallazgos **H1–H5** ya están respaldados por las salidas de Estuardo ([`01_exploracion_dataset.txt`](evidencias/salidas/01_exploracion_dataset.txt), [`02_calidad_datos.txt`](evidencias/salidas/02_calidad_datos.txt)). Los **H6–H10** dependen de los scripts 12–14: la consulta que los sustenta y su captura se indican en cada uno, y las cifras marcadas con `—` se completan al ejecutarlos.
+Los hallazgos **H1–H5** se basan en las salidas de [`01_exploracion_dataset.txt`](evidencias/salidas/01_exploracion_dataset.txt) y [`02_calidad_datos.txt`](evidencias/salidas/02_calidad_datos.txt); los **H6–H10**, en los scripts 12–15 ejecutados (capturas [`ejec_12`](evidencias/capturas/ejec_12_eda_temporal.png), [`ejec_13`](evidencias/capturas/ejec_13_eda_pago_zonas.png), [`ejec_14`](evidencias/capturas/ejec_14_eda_tarifas_propinas.png)) y en el tablero (capturas [58](evidencias/capturas/58_tablero_exploratorio.png)–[60](evidencias/capturas/60_tablero_predicciones.png)). Los valores con ≈ se leyeron de los gráficos.
 
 ### Temporales
 - **H1 — Enero es el mes más bajo y la demanda se recupera en primavera.** Enero 2022 tuvo 2,463,900 viajes (≈ 79.5 mil/día) frente a ≈ 120 mil/día en abril y 118.6 mil/día en octubre, el máximo absoluto con 3,675,372 viajes. Es decir, **+49 %** entre enero y octubre. Coincide con la ola de Ómicron y el invierno de enero 2022.
 - **H2 — Bache de verano.** Julio–septiembre baja a ≈ 102–106 mil viajes/día (julio −10.8 % respecto a junio). Se explica por vacaciones y menos desplazamientos laborales y de oficina en Manhattan. La demanda repunta en octubre.
-- **H6 — Horas pico y día de la semana** (consultas 12.2–12.4, capturas 41–43). Picos de viajes: — h entre semana y — h los fines de semana. El tráfico baja la velocidad promedio a — mph en la hora pico, frente a — mph de madrugada. Día con más viajes por día: —.
+- **H6 — Ciclo semanal y efecto de feriados.** La serie diaria de propinas de octubre–noviembre (gráfico P2) oscila con un patrón semanal claro, entre ≈ 200 y 300 mil USD diarios. En **Thanksgiving (24-nov)** cae a ≈ 146 mil USD, alrededor de la mitad de un día normal: los feriados vacían la ciudad de viajes laborales.
 
 ### Categóricas (tipo de pago y tarifa)
 - **H3 — La tarjeta domina y la propina en efectivo no existe en los datos.** Tarjeta 75.94 % de los viajes, efectivo 19.59 %, sin dato 3.43 %, disputa 0.57 % y sin cargo 0.48 %. En efectivo, el **99.98 %** de los viajes tiene propina = 0: no es que no se dé propina, sino que **no se registra**. Por eso todo el análisis de propinas y los modelos usan solo pagos con tarjeta. Con tarjeta, solo el 3.97 % deja propina 0 y el promedio es 3.41 USD.
-- **H4 — La tarifa estándar es el 91.3 % de los viajes.** Le siguen JFK con tarifa plana (3.76 %), negociada (0.78 %), código desconocido 99 (0.33 %), Newark (0.27 %) y Nassau/Westchester (0.13 %). Los viajes al aeropuerto son pocos, pero tienen la tarifa y la propina más altas (consulta 13.7, captura 50: propina promedio JFK — USD vs. resto — USD).
+- **H4 — La tarifa estándar es el 91.3 % de los viajes.** Le siguen JFK con tarifa plana (3.76 %), negociada (0.78 %), código desconocido 99 (0.33 %), Newark (0.27 %) y Nassau/Westchester (0.13 %). Los viajes al aeropuerto son pocos en proporción, pero son los de mayor tarifa y propina: el modelo predice ≈ 11.5 USD de propina para JFK → Midtown, frente a ≈ 2–2.6 USD en viajes dentro de Manhattan (gráfico P6).
 
 ### Económicas
 - **H5 — Los viajes típicos son cortos y baratos, con colas extremas que son errores.** Mediana de tarifa 10 USD, propina 2.16 USD, distancia 1.9 mi y duración 12.2 min. El percentil 99 es 60 USD y 20 mi, pero los máximos (401,092 USD, 389,678 mi, 10 millones de minutos) son errores de captura; por eso se aplicaron los filtros de la sección 1.
-- **H7 — La propina con tarjeta se concentra en los botones sugeridos** (consulta 14.2, captura 52). — % de los viajes queda entre 20–25 % de la tarifa y — % entre 25–35 %. Esto explica por qué el modelo de clasificación `high_tip` tiene poco poder predictivo (sección 9.3): el porcentaje depende sobre todo del botón que elige el pasajero, no del viaje.
-- **H8 — El monto de la propina sigue a la tarifa, pero el porcentaje no** (consultas 14.3–14.4, capturas 53–54). Correlación propina–tarifa = —, propina–distancia = —, y % de propina–tarifa = —. Por eso `fare_amount`, `trip_distance` y `trip_duration_min` son las features más fuertes del regresor.
+- **H7 — El porcentaje de propina es casi independiente del viaje.** El clasificador de propina alta (≥ 20 %) tiene ROC-AUC ≈ 0.56 y asigna probabilidades parecidas (0.69–0.83) a viajes tan distintos como un traslado al aeropuerto en hora pico y un viaje corto al mediodía (sección 9). El porcentaje depende más del pasajero, probablemente de los porcentajes sugeridos en la pantalla del taxi, que de la ruta o la hora.
+- **H8 — El monto de la propina sigue a la tarifa.** En los viajes hipotéticos (P6), la propina predicha ronda el 21–24 % de la tarifa para tarifas de 11.5 a 52 USD. Solo el viaje mínimo (5.5 USD) sube al 38 %, porque hay un monto mínimo de propina. Por eso el modelo lineal gana: la relación propina–tarifa es casi proporcional (sección 9.5).
 
 ### Geográficas
-- **H9 — La demanda se concentra en Manhattan** (consultas 13.4–13.5, capturas 48–49). Las 15 zonas de origen con más viajes acumulan — % del total. El — % de los viajes empieza y termina en Manhattan. La ruta más frecuente es —.
-- **H10 — Zonas de mayor propina** (consulta 14.7, captura 56). Las zonas con más % de propina son —; los aeropuertos destacan en monto (USD) por la distancia, no en porcentaje.
+- **H9 — La demanda se concentra en Manhattan y JFK** (mapa V4 y barras V5, [captura 59](evidencias/capturas/59_tablero_geografico.png)). La zona con más viajes es **Upper East Side South (237)**, con **1,675,569** viajes. Le siguen JFK Airport (132), Upper East Side North (236), Midtown Center (161), Penn Station/Madison Sq West (186), Midtown East (162), Lincoln Square East (142), Murray Hill (170) y Times Sq/Theatre District (230), con ≈ 1.1–1.7 millones cada una. Esas 9 zonas suman ≈ un tercio de todos los viajes (≈ 12 de ≈ 35 millones). Salvo JFK, todas están en Manhattan, y el mapa muestra que el resto de los boroughs casi no genera viajes de taxi amarillo.
+- **H10 — Los aeropuertos son pocos viajes, pero valen más.** JFK es la 2.ª zona de origen con más viajes y la de mayor propina en USD: ≈ 11.5 USD predichos hacia Midtown frente a ≈ 2.6 USD dentro de Manhattan. En porcentaje no destaca (≈ 22 %, igual que un viaje urbano): su ventaja viene de la distancia y la tarifa, no de pasajeros más generosos.
 
 ## 11. Informe visual
 **Enlace al tablero de Looker Studio:** https://datastudio.google.com/reporting/88825b74-66a1-4d74-90cc-d75f74511091
@@ -298,13 +295,10 @@ Diseño, fuentes y pasos para armarlo: [`informe_visual/GUIA_TABLERO.md`](inform
 | Comparación estándar vs. optimizada | [11](evidencias/capturas/11_comparacion_1A_publica.png), [12](evidencias/capturas/12_comparacion_1B_base.png), [13](evidencias/capturas/13_comparacion_1C_opt.png), [14](evidencias/capturas/14_comparacion_2A_publica.png), [15](evidencias/capturas/15_comparacion_2B_base.png), [16](evidencias/capturas/16_comparacion_2C_opt.png), [17 (resumen)](evidencias/capturas/17_resumen_comparacion.png) |
 | Tabla ML y split | [18](evidencias/capturas/18_tabla_ml_filas.png), [19](evidencias/capturas/19_split_temporal.png), [20](evidencias/capturas/20_split_sin_solapamiento.png), [21a](evidencias/capturas/21a_features_modelos.png)/[21b](evidencias/capturas/21b_features_modelos.png) |
 | Entrenamiento de modelos | [22a](evidencias/capturas/22a_detalles_linear.png)/[22b](evidencias/capturas/22b_entrenamiento_linear.png), [23a](evidencias/capturas/23a_detalles_logistic.png)/[23b](evidencias/capturas/23b_entrenamiento_logistic.png), [24a](evidencias/capturas/24a_detalles_boosted.png)/[24b](evidencias/capturas/24b_entrenamiento_boosted.png), [25a](evidencias/capturas/25a_training_info_boosted.png)/[25b](evidencias/capturas/25b_training_info_logistic.png)/[25c](evidencias/capturas/25c_training_info_linear.png) |
-| Evaluación de modelos *(pendiente de captura, `08`/`09`)* | 26 eval regresión · 27 eval clasificación · 28 matriz de confusión · 29 umbral óptimo · 30 global explain · 31 training info v2 · 32 comparación hiperparámetros · 33 modelo elegido |
-| Predicciones y Rolling Forecast *(pendiente, `10`/`11`)* | 34 tabla de predicciones · 35 resumen predicciones · 36 viajes hipotéticos · 37 rolling diario · 38 rolling resumen |
-| Análisis exploratorio *(pendiente, `12`–`15`)* | 40 mensual · 41 por hora · 42 día de semana · 43 heatmap · 44 días extremos · 45 tipo de pago · 46 pago mensual · 47 rate code · 48 top zonas · 49 top rutas · 50 aeropuertos · 51 descriptivas · 52 % propina · 53 distancia-tarifa · 54 correlaciones · 55 propina por hora · 56 zonas propina · 57 tablas dashboard |
-| Tablero *(pendiente)* | 58 página exploratoria · 59 página geográfica · 60 página de predicciones |
+| Tablero de Looker Studio | [58 exploración temporal y pagos](evidencias/capturas/58_tablero_exploratorio.png) · [59 zonas y propinas](evidencias/capturas/59_tablero_geografico.png) · [60 modelos y predicciones](evidencias/capturas/60_tablero_predicciones.png) |
 | Ejecución de los scripts en BigQuery | [09 hiperparámetros](evidencias/capturas/ejec_09_hiperparametros.png) · [09 código 9.4–9.5](evidencias/capturas/ejec_09_hiperparametros_codigo.png) · [11 rolling forecast](evidencias/capturas/ejec_11_rolling_forecast.png) · [12 EDA temporal](evidencias/capturas/ejec_12_eda_temporal.png) · [13 EDA pago y zonas](evidencias/capturas/ejec_13_eda_pago_zonas.png) · [14 EDA tarifas y propinas](evidencias/capturas/ejec_14_eda_tarifas_propinas.png) · [Looker: fuentes `dash_*`](evidencias/capturas/ejec_looker_fuentes_dash.png) |
 
-Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pendientes se guardan en `evidencias/capturas/` con el número indicado en el comentario de cada consulta.
+Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/).
 
 ## 13. Cómo reproducir
 1. Crear un proyecto de Google Cloud con facturación activa y autenticar la CLI (`gcloud auth login`, `gcloud config set project <ID>`).
@@ -320,21 +314,17 @@ Salidas en texto: [`evidencias/salidas/`](evidencias/salidas/). Las capturas pen
 |---|---|---|
 | Requisito: BigQuery + NYC Taxi 2022 con ≥ 1 M registros | Sección 1 (36,256,539 registros), captura 02 | ✅ |
 | Requisito: optimización y clustering obligatorio | Sección 3, `03`, capturas 07–10 | ✅ |
-| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ✅ enlace · ⏳ capturas 58–60 del tablero |
+| Requisito: carpeta Proyecto_2 con SQL, evidencias, README e informe visual | Este repositorio | ✅ |
 | 1.1 Conexión y comprensión del dataset (8) | Sección 1, `01`, `02` | ✅ |
-| 1.2 Consultas SQL avanzadas y transformaciones (8) | `05`, `12`–`15` | ✅ scripts · ⏳ capturas 40–57 |
+| 1.2 Consultas SQL avanzadas y transformaciones (8) | `05`, `12`–`15`, capturas `ejec_12`–`ejec_14` | ✅ |
 | 1.3 Optimización con particiones y clustering (12) | Sección 3, `03`, `04` | ✅ |
 | 1.4 Al menos 2 modelos en BigQuery ML (8) | Sección 8, `06` (3 modelos) + `09` (3 variantes) + `11` (rolling) | ✅ |
-| 1.5 Evaluación y comparación con métricas e hiperparámetros (12) | Sección 9, `08`, `09` | ✅ scripts · ⏳ llenar valores `—` |
+| 1.5 Evaluación y comparación con métricas e hiperparámetros (12) | Sección 9, `08`, `09`, captura 60 | ✅ |
 | 1.6 Data leakage y split (12) | Sección 7 y 9.2, `05`, `07` | ✅ |
-| 2.1 Análisis de patrones y tendencias (10) | Sección 10 (H1–H10) | ✅ H1–H5 · ⏳ cifras H6–H10 |
-| 2.2 Visualización exploratoria y de predicciones (10) | Sección 11, `informe_visual/` | ⏳ crear el tablero |
+| 2.1 Análisis de patrones y tendencias (10) | Sección 10 (H1–H10) | ✅ |
+| 2.2 Visualización exploratoria y de predicciones (10) | Sección 11, capturas 58–60 | ✅ |
 | 2.3 Ingeniería de características (10) | Sección 5 | ✅ |
 | 2.4 Variables de entrada, salida y objetivo (5) | Sección 6 | ✅ |
 | 2.5 Comparación estándar vs. optimizada (5) | Sección 3, capturas 11–17 | ✅ |
 
-**Pendientes antes de entregar** (requieren acceso al proyecto GCP):
-1. Ejecutar `08`–`15` y tomar las capturas 26–57.
-2. Reemplazar los `—` de las secciones 9 y 10 con los valores obtenidos y confirmar el modelo elegido (9.5).
-3. Guardar las capturas 58–60 del tablero de Looker Studio (enlace ya en la sección 11).
-4. Completar el carné de Estuardo en la tabla de integrantes.
+**Pendiente:** completar el carné de Estuardo en la tabla de integrantes.
